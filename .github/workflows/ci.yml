@@ -23,4 +23,6 @@ jobs:
         run: nix flake check
       - name: Organist shell
         working-directory: organist
-        run: nix develop --command jd version
+        # path:, not the default git+file: on the runner, Organist's import from
+        # derivation fails with the latter ("regenerate-files.drv is not valid")
+        run: nix develop path:. --command jd version
