@@ -1,0 +1,6 @@
+.direnv/
+result
+result-*
+# what nu/test.nu and jd write-config create when run here
+.jd/
+nickel.lock.ncl

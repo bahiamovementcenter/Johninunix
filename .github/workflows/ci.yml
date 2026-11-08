@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/determinate-nix-action@main
+      - name: Formatting
+        run: nix develop --command nixfmt --check flake.nix jd.nix organist/flake.nix
+      - name: Flake check
+        run: nix flake check
+      - name: Organist shell
+        working-directory: organist
+        run: nix develop --command jd version
