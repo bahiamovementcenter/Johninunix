@@ -1,13 +1,15 @@
-# Your Johnny.Decimal system. In nu, after `use nu/jd.nu`:
+# An example Johnny.Decimal system. The development shell points JD_SYSTEM
+# here, so in nu, after `use nu/jd.nu`:
 #
 #   jd project       evaluate this file (Nickel checks it first)
 #   jd write-config  write the config.json that jd reads
 #   jd scaffold      create the folders and JDex notes declared here
 #   jd check         compare this file with the folders and extensions/
 #
-# Relative paths are relative to this file. The contracts are in
-# nickel/johnny-decimal.ncl.
-let jd = import "nickel/johnny-decimal.ncl" in
+# Relative paths are relative to this file, so the system's folders and its
+# JDex are created in example/. Its extensions are in example/extensions/.
+# The contracts are in nickel/johnny-decimal.ncl.
+let jd = import "../nickel/johnny-decimal.ncl" in
 jd.project {
   systems = [
     {
@@ -28,7 +30,7 @@ jd.project {
     },
   ],
 
-  # One entry per file in extensions/, saying what it touches
+  # One entry per file in example/extensions/, saying what it touches
   extensions = {
     "stats.sh" = {
       description = "jd stats: how many IDs each area has",

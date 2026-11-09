@@ -13,9 +13,9 @@ let with_dev_outputs =
   )
 in
 
-# jd with the extensions in ../extensions, from the root flake (the
-# `johninunix` input). This folder holds only the Organist files: system.ncl,
-# nickel/ and nu/ are read from the root through JD_SYSTEM.
+# jd with the example system's extensions, from the root flake (the
+# `johninunix` input). This folder holds only the Organist files: the
+# system, nickel/ and nu/ are read from the root through JD_SYSTEM.
 let jd_with_extensions = organist.import_nix "johninunix#default" in
 
 organist.OrganistExpression
@@ -34,11 +34,14 @@ organist.OrganistExpression
       # Write the config from system.ncl with `jd write-config` in nu.
       env.JDD_LOG_LEVEL = "info",
 
-      # Run from organist/, so the project is the folder above
+      # The same paths as the root flake's shell: relative to the
+      # repository's top folder, from any folder inside it
       hooks.jd_paths = m%"
-        export JD_SYSTEM="${JD_SYSTEM:-$(cd .. && pwd)/system.ncl}"
-        export JD_CONFIG="${JD_CONFIG:-$(cd .. && pwd)/.jd/config.json}"
-        export JDD_ROOT="${JDD_ROOT:-$(cd .. && pwd)}"
+        _jd_top=$(git rev-parse --show-toplevel 2>/dev/null || (cd .. && pwd))
+        export JD_SYSTEM="${JD_SYSTEM:-$_jd_top/example/system.ncl}"
+        export JD_CONFIG="${JD_CONFIG:-$_jd_top/example/.jd/config.json}"
+        export JDD_ROOT="${JDD_ROOT:-$_jd_top/example}"
+        unset _jd_top
       "%,
 
       packages =
