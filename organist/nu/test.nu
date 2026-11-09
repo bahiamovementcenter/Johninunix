@@ -5,8 +5,8 @@ use std/assert
 use jd.nu
 
 # Nickel must reject this declaration with this message
-def rejects [message: string, areas: string, extensions: string = "{}"] {
-  $'let jd = import "nickel/johnny-decimal.ncl" in jd.project { systems = [{ sys = "P76", title = "T", root = ".", areas = ($areas) }], extensions = ($extensions) }'
+def rejects [message: string, areas: string, extensions: string = "{}", fields: string = ""] {
+  $'let jd = import "nickel/johnny-decimal.ncl" in jd.project { systems = [{ sys = "P76", title = "T", root = ".", ($fields) areas = ($areas) }], extensions = ($extensions) }'
   | save --force bad.ncl
   let r = ^nickel export bad.ncl | complete
   rm bad.ncl
@@ -29,11 +29,17 @@ def main [] {
   rejects "is not a function in jd" $one '{ "x.sh" = { description = "d", wraps = ["_jd_nope"] } }'
   rejects "is built into jd" $one '{ "x.sh" = { description = "d", commands = ["new"] } }'
   rejects "two extensions wrap _jd_new" $one '{ "a.sh" = { description = "d", wraps = ["_jd_new"] }, "b.sh" = { description = "d", wraps = ["_jd_new"] } }'
+  rejects "a jdex needs a path, unless its app is bear" $one "{}" 'jdex = { app = "obsidian" },'
+  rejects "an app is a name of a-z, 0-9, _ and -" $one "{}" 'jdex = { app = "../x", path = "j" },'
+  rejects "an app is a name of a-z, 0-9, _ and -" $one "{}" 'work_packages = { tasks = { app = "Things" } },'
 
   print "layer 2: the nu module writes, scaffolds and checks the example system"
   assert equal (jd project | get config.systems | length) 1
   jd write-config | ignore
   assert ($env.JD_CONFIG | path exists)
+  let config = open $env.JD_CONFIG
+  assert equal $config.version 2 "jd 5 reads config version 2"
+  assert equal $config.systems.0.jdex.path ($env.PWD | path join "jdex")
   assert ((jd scaffold | length) > 0)
   assert equal (jd scaffold --dry-run) []
   let problems = jd check | where status != "ok"
@@ -53,6 +59,7 @@ def main [] {
   assert equal (^git -C jdex log --format=%s | str trim) "jd new: 12.11 Boiler"
   ^jd new id 12 Roof o+e>| ignore
   assert equal (^git -C jdex log --format=%s | lines | length) 1 "autocommit ran without JD_AUTOCOMMIT=1"
+  assert not ($"($env.JD_CONFIG).v1" | path exists) "jd rewrote the config: system.ncl wrote an old version"
 
   print "ok"
 }

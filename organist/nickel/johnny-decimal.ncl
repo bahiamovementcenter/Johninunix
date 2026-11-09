@@ -1,7 +1,7 @@
 # Contracts for a Johnny.Decimal system, and what is built from it. Declare
 # your system in system.ncl; `project` checks it and returns:
 #
-#   config      the config.json that jd reads (`jd write-config` writes it)
+#   config      the config.json that jd reads, version 2 (`jd write-config` writes it)
 #   scaffold    the areas, categories and IDs it declares (`jd scaffold`)
 #   extensions  your extensions, checked against the pinned jd
 #   adapters    the built-in adapters, and the functions an adapter defines
@@ -87,17 +87,40 @@ let Area = {
   categories | { _ | Category } | default = {},
 }
 in
-let Adapter = { adapter | String, .. } in
+# An app name, as jd 5 accepts one: it names lib/adapters/<kind>/<app>.sh
+let app_name = validator (fun a =>
+  if std.is_string a && matches "^[a-z0-9_-]+$" a then [] else ["an app is a name of a-z, 0-9, _ and -, like obsidian"]
+)
+in
+# Where the JDex is (jd's config version 2): a folder, an app, or both
+let Jdex = {
+  app | doc "The note app: obsidian, bear, or one in extensions/adapters/notes/" | app_name | optional,
+  path | doc "The folder of JDex notes. A relative path is relative to system.ncl" | String | optional,
+  vault | doc "The Obsidian vault's name" | String | optional,
+}
+in
+let jdex_errors = fun j =>
+  if std.record.has_field "path" j || (std.record.has_field "app" j && j.app == "bear") then
+    []
+  else
+    ["a jdex needs a path, unless its app is bear"]
+in
+let Tasks = {
+  app | doc "The task app: things, none, or one in extensions/adapters/tasks/" | app_name,
+  source | doc "The template project's ID in the app" | String | optional,
+  ..
+}
+in
 let System = {
   sys
     | doc "A letter and two digits, like P76"
     | validator (fun s => if std.is_string s && matches "^[A-Z][0-9]{2}$" s then [] else ["a system id is a letter and two digits, like P76"]),
   title | String,
   root | doc "The system's folder. A relative path is relative to system.ncl" | String,
-  jdex | doc "The folder of JDex notes" | String | optional,
+  jdex | doc "Where the JDex is, like { path = \"jdex\" } or { app = \"bear\" }" | Jdex | validator jdex_errors | optional,
   default | Bool | default = false,
   standard_zeros | doc "Add .00 to .05 and .09 to every category" | Bool | default = true,
-  work_packages | { notes | Adapter | optional, tasks | Adapter | optional } | optional,
+  work_packages | { tasks | Tasks | optional } | optional,
   areas | doc "Range → area, like \"10-19\"" | { _ | Area } | validator area_errors,
 }
 in
@@ -198,7 +221,7 @@ in
   project = fun declared =>
     let p = declared | Project in
     {
-      config = { version = 1, systems = std.array.map config_of p.systems },
+      config = { version = 2, systems = std.array.map config_of p.systems },
       scaffold = std.array.flat_map scaffold_of p.systems,
       extensions = p.extensions,
       jd = generated.upstream,

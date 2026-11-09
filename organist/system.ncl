@@ -14,7 +14,7 @@ jd.project {
       sys = "P76",
       title = "Personal",
       root = ".",
-      jdex = "jdex",
+      jdex = { path = "jdex" },
       default = true,
       areas = {
         "10-19" = {

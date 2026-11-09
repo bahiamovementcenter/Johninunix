@@ -16,7 +16,10 @@ jd check             # compare system.ncl with the disk and with extensions/
 ```
 
 The example `system.ncl` uses this folder as the system's root and `jdex/`
-as its JDex. Point `root` and `jdex` at your real folders before you scaffold.
+as its JDex. Point `root` and `jdex.path` at your real folders before you
+scaffold. `jdex` follows jd's config version 2: `{ path = "..." }` for a
+folder of notes, plus `app = "obsidian"` (and `vault`) for an Obsidian
+vault, or `{ app = "bear" }` for a JDex in Bear.
 
 ## The layers
 
@@ -65,7 +68,9 @@ Files must be tracked by git for the flakes to see them.
 
 ## Upgrading jd
 
-Change `version`, `rev` and `hash` in `jd.nix`, then:
+The package turns off jd's daily check for a newer version, and `jd update`
+can't work, because the Nix store copy isn't a git clone. Change `version`,
+`rev` and `hash` in `jd.nix` instead, then:
 
 ```sh
 nix run .#generate   # rewrite nickel/generated/ from the new source

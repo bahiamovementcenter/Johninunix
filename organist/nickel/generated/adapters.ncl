@@ -3,6 +3,7 @@
 {
   notes = {
     builtin = [
+      "bear",
       "none",
       "obsidian",
     ],

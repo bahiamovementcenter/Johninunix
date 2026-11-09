@@ -35,10 +35,25 @@ def main [src: string, out: string, version: string, owner: string, repo: string
   write-ncl $out "functions" "jd's shell functions: the ones an extension may wrap" (ncl-list $functions)
 
   # The words _jd_nav treats as commands: `[ "${1-}" = word ]` tests and the
-  # patterns of its `case` statements, like `move | undo)` or `-h|--help|help)`
+  # patterns of its `case $1 in` statements, like `move | undo)` or
+  # `-h|--help|help)`. Patterns of a `case` on anything else (since jd 5,
+  # `case $_JD_JDEX_KIND in` with `bear)` and `flat)`) are not commands.
   let nav = open --raw ($src | path join "lib" "nav.sh")
   let tested = $nav | parse --regex '\[ "\$\{1-\}" = (?<w>[a-z][a-z-]*) \]' | get w
   let cased = $nav | lines
+    | reduce --fold { open: [], lines: [] } { |line, acc|
+        let opened = $line | parse --regex '^\s*case (?<s>\S+) in\s*$'
+        if ($opened | is-not-empty) {
+          $acc | upsert open ($acc.open | append $opened.0.s)
+        } else if ($line =~ '^\s*esac\b') {
+          $acc | upsert open ($acc.open | drop)
+        } else if (($acc.open | last 1) in [['$1'] ['${1-}']]) {
+          $acc | upsert lines ($acc.lines | append $line)
+        } else {
+          $acc
+        }
+      }
+    | get lines
     | parse --regex '^\s*(?<p>-{0,2}[a-z][a-z-]*(?:\s*\|\s*-{0,2}[a-z][a-z-]*)*)\)'
     | get p | each { |p| $p | split row '|' | str trim } | flatten
     | where { |w| not ($w | str starts-with '-') }
