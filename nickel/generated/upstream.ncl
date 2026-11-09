@@ -3,6 +3,6 @@
 {
   owner = "johnnydecimal",
   repo = "cli.johnnydecimal.com",
-  rev = "863d2e6412b70c385db8bdbcd6e1b3e28e6048f4",
-  version = "4.4.0",
+  rev = "21f5eb2eb81cd17f127e9624f967e75339a86eed",
+  version = "5.0.1",
 }

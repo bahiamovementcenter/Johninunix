@@ -9,5 +9,6 @@
   "new",
   "paths",
   "undo",
+  "update",
   "version",
 ]

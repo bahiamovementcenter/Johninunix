@@ -1,6 +1,8 @@
 # The official Johnny.Decimal command-line tool (jd). It isn't packaged in
 # Nixpkgs, so it's fetched at a pinned revision and wrapped so that jq is
-# always on its PATH.
+# always on its PATH. The wrapper also turns off jd's daily check for a
+# newer version: this copy is in the Nix store, not a git clone, so
+# `jd update` can't apply one. Upgrade by changing the pin below.
 #
 # `jd.withExtensions ./extensions` adds your own extensions: every
 # `extensions/*.sh` is loaded by jd before it runs a command (see jd-ext.sh),
@@ -18,13 +20,13 @@ let
   upstream = {
     owner = "johnnydecimal";
     repo = "cli.johnnydecimal.com";
-    rev = "863d2e6412b70c385db8bdbcd6e1b3e28e6048f4";
-    hash = "sha256-jM0nlEJACeE+5Ojluwpd4Hwkfyvn1Ppnzhqc85PFqtA=";
+    rev = "21f5eb2eb81cd17f127e9624f967e75339a86eed";
+    hash = "sha256-rCxwL4SkRRFeyzR4UccuoZ61BXJJ1szHmfnIGQJ1Y0M=";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "jd";
-  version = "4.4.0";
+  version = "5.0.1";
 
   src = fetchFromGitHub upstream;
 
@@ -61,7 +63,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     ''}
 
     makeWrapper $cli/bin/jd $out/bin/jd \
-      --prefix PATH : ${lib.makeBinPath [ jq ]}
+      --prefix PATH : ${lib.makeBinPath [ jq ]} \
+      --set-default JD_NO_UPDATE_CHECK 1
 
     runHook postInstall
   '';

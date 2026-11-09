@@ -24,15 +24,21 @@ export def --env --wrapped main [...args: string] {
   }
 }
 
-# system.ncl as a record, with root and jdex made absolute
+# The JDex folder of a system, or null for none (or a JDex in Bear)
+def jdex-path [s: record] {
+  $s.jdex?.path?
+}
+
+# system.ncl as a record, with root and the JDex path made absolute
 def load [file: path] {
   let file = $file | path expand
   let dir = $file | path dirname
   let project = ^nickel export --format json $file | from json
   let systems = $project.config.systems | each { |s|
     let s = $s | upsert root ($dir | path join $s.root | path expand)
-    if "jdex" in ($s | columns) {
-      $s | upsert jdex ($dir | path join $s.jdex | path expand)
+    let jdex = jdex-path $s
+    if $jdex != null {
+      $s | upsert jdex.path ($dir | path join $jdex | path expand)
     } else {
       $s
     }
@@ -41,16 +47,18 @@ def load [file: path] {
 }
 
 # Everything the system declares: one folder in the root per entry, plus a
-# folder (areas, categories) or a note (IDs) in the JDex
+# folder (areas, categories) or a note (IDs) in a JDex folder. A JDex in
+# Bear has no folder, so nothing is planned there.
 def plan [project: record] {
   $project.scaffold | each { |e|
     let s = $project.config.systems | where sys == $e.sys | first
     let in_root = { kind: $e.kind, type: "folder", target: ($s.root | path join $e.path) }
-    if "jdex" in ($s | columns) {
+    let jdex = jdex-path $s
+    if $jdex != null {
       let in_jdex = if $e.kind == "id" {
-        { kind: $e.kind, type: "note", target: ($s.jdex | path join $"($e.path).md") }
+        { kind: $e.kind, type: "note", target: ($jdex | path join $"($e.path).md") }
       } else {
-        { kind: $e.kind, type: "folder", target: ($s.jdex | path join $e.path) }
+        { kind: $e.kind, type: "folder", target: ($jdex | path join $e.path) }
       }
       [$in_root $in_jdex]
     } else {
@@ -134,15 +142,17 @@ def check-extensions [project: record, dir: string] {
       })
     }
   }
+  # The note app is the JDex's app, and the task app is workPackages.tasks.app
   let used = $project.config.systems | each { |s|
-    let wp = $s.workPackages? | default {}
-    $wp | columns | each { |kind|
-      let name = $wp | get $kind | get adapter
-      let known = $adapters | where kind == $kind | first | get names
-      if $name in $known {
-        row "adapter" $"($s.sys) ($kind)" "ok" $name
+    [
+      { kind: "notes", name: $s.jdex?.app? }
+      { kind: "tasks", name: $s.workPackages?.tasks?.app? }
+    ] | where name != null | each { |u|
+      let known = $adapters | where kind == $u.kind | first | get names
+      if $u.name in $known {
+        row "adapter" $"($s.sys) ($u.kind)" "ok" $u.name
       } else {
-        row "adapter" $"($s.sys) ($kind)" "missing" $"no ($kind) adapter named ($name)"
+        row "adapter" $"($s.sys) ($u.kind)" "missing" $"no ($u.kind) adapter named ($u.name)"
       }
     }
   } | flatten
