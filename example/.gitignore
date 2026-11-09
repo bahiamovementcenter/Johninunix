@@ -1,0 +1,5 @@
+# What `jd scaffold`, `jd write-config` and jd itself create here
+/*
+!/.gitignore
+!/system.ncl
+!/extensions/

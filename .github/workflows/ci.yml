@@ -15,10 +15,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/determinate-nix-action@main
+      - uses: actions/checkout@v5
+      - uses: DeterminateSystems/determinate-nix-action@fd3eb131b9b46cc1dd978a7c0ba3fce79dd7d3eb # v3.9.1
       - name: Formatting
-        run: nix develop --command nixfmt --check flake.nix jd.nix organist/flake.nix
+        run: nix fmt -- --ci
       - name: Flake check
         run: nix flake check
       - name: Organist shell
