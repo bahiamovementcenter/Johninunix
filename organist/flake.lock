@@ -34,6 +34,22 @@
         "type": "github"
       }
     },
+    "johninunix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "path": "..",
+        "type": "path"
+      },
+      "original": {
+        "path": "..",
+        "type": "path"
+      },
+      "parent": []
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1793876309,
@@ -72,6 +88,7 @@
     },
     "root": {
       "inputs": {
+        "johninunix": "johninunix",
         "nixpkgs": "nixpkgs",
         "organist": "organist"
       }

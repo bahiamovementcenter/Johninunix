@@ -7,6 +7,11 @@
       url = "github:nickel-lang/organist";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # The repository root: jd, its extensions, system.ncl, nickel/ and nu/
+    johninunix = {
+      url = "path:..";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # The development shell is defined in project.ncl

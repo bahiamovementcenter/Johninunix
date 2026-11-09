@@ -8,7 +8,7 @@
 #   jd check            compare system.ncl with the disk and with extensions/
 #
 # It wraps the jd program and never changes it. The commands that take
-# --file read system.ncl from the current folder by default.
+# --file read $env.JD_SYSTEM, or else system.ncl in the current folder.
 
 # Run jd. When jd resolves a folder, change into it.
 export def --env --wrapped main [...args: string] {
@@ -29,9 +29,14 @@ def jdex-path [s: record] {
   $s.jdex?.path?
 }
 
+# The system.ncl to read: --file, else $env.JD_SYSTEM, else ./system.ncl
+def system-file [file?: path] {
+  $file | default $env.JD_SYSTEM? | default "system.ncl" | path expand
+}
+
 # system.ncl as a record, with root and the JDex path made absolute
-def load [file: path] {
-  let file = $file | path expand
+def load [file?: path] {
+  let file = system-file $file
   let dir = $file | path dirname
   let project = ^nickel export --format json $file | from json
   let systems = $project.config.systems | each { |s|
@@ -183,13 +188,15 @@ export def ids [
 }
 
 # system.ncl, evaluated and checked by Nickel
-export def project [--file (-f): path = "system.ncl"] {
+export def project [
+  --file (-f): path # default: $env.JD_SYSTEM, else ./system.ncl
+] {
   load $file
 }
 
 # Write jd's config.json (at `jd paths config`) from system.ncl
 export def write-config [
-  --file (-f): path = "system.ncl"
+  --file (-f): path # default: $env.JD_SYSTEM, else ./system.ncl
   --force # replace a config.json that differs
 ] {
   let new = load $file | get config | to json --indent 2
@@ -205,7 +212,7 @@ export def write-config [
 # Create the folders and JDex notes that system.ncl declares and the disk
 # lacks. It never deletes or renames anything.
 export def scaffold [
-  --file (-f): path = "system.ncl"
+  --file (-f): path # default: $env.JD_SYSTEM, else ./system.ncl
   --dry-run # list what it would create
 ] {
   let todo = plan (load $file) | where { |e| not ($e.target | path exists) }
@@ -225,10 +232,11 @@ export def scaffold [
 # Compare system.ncl with the disk (missing, undeclared) and with the
 # files in extensions/ (missing, undeclared, mismatch)
 export def check [
-  --file (-f): path = "system.ncl"
-  --extensions (-e): path = "extensions"
+  --file (-f): path # default: $env.JD_SYSTEM, else ./system.ncl
+  --extensions (-e): path # default: extensions/ beside system.ncl
 ] {
   let project = load $file
+  let extensions = $extensions | default (system-file $file | path dirname | path join "extensions")
   let declared = plan $project
   let structure = $declared | each { |e|
     row $e.kind $e.target (if ($e.target | path exists) { "ok" } else { "missing" })

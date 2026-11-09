@@ -48,6 +48,17 @@ def main [] {
   assert ($env.PWD | str ends-with "11.11 Passport")
   cd -
 
+  # From another folder (organist/ is one), JD_SYSTEM finds system.ncl, and
+  # check finds extensions/ beside it
+  let here = $env.PWD
+  cd organist
+  with-env { JD_SYSTEM: ($here | path join "system.ncl") } {
+    assert equal (jd project | get config.systems.0.sys) "P76"
+    let problems = jd check | where status != "ok"
+    assert equal $problems [] $"jd check with JD_SYSTEM found problems:\n($problems | table)"
+  }
+  cd $here
+
   print "layer 3: extensions inside jd"
   ^jd new id 11 Test entry o+e>| ignore
   assert equal (jd ids 11 | where name == "Test entry" | get id) ["11.12"]
