@@ -69,15 +69,6 @@
             touch $out
           '';
 
-          # organist/ is a flake of its own, so it carries copies of these
-          organist-copies = pkgs.runCommand "jd-organist-copies" { } ''
-            cd ${./.}
-            for p in jd.nix jd-ext.sh system.ncl extensions nickel/johnny-decimal.ncl nickel/generated nu; do
-              diff -r "$p" "organist/$p" || { echo "organist/$p differs from $p: copy it over" >&2; exit 1; }
-            done
-            touch $out
-          '';
-
           # Runs nu/test.nu on a copy of this repo
           system =
             pkgs.runCommand "jd-system-test"
@@ -117,6 +108,7 @@
             };
 
             shellHook = ''
+              export JD_SYSTEM="''${JD_SYSTEM:-$PWD/system.ncl}"
               export JD_CONFIG="''${JD_CONFIG:-$PWD/.jd/config.json}"
               export JDD_ROOT="''${JDD_ROOT:-$PWD}"
             '';

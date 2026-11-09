@@ -59,10 +59,12 @@ Each layer works without the ones after it.
 4. **Organist.** `organist/` is the same development shell defined in
    Nickel with [Organist](https://github.com/nickel-lang/organist)
    (`cd organist && nix develop`; Organist writes `nickel.lock.ncl` into the
-   current folder). It's a flake of its own, so it carries copies
-   of `jd.nix`, `jd-ext.sh`, `system.ncl`, `extensions/`, `nickel/` and
-   `nu/`. Edit them at the root and copy them over: `nix flake check` fails
-   while they differ.
+   current folder). It's a flake of its own, and it takes jd and its
+   extensions from the root flake through a `path:..` input, so nothing is
+   copied. The shell sets `JD_SYSTEM` to `../system.ncl`, so after
+   `use ../nu/jd.nu` the commands read the root's system from `organist/`
+   too. `JD_SYSTEM` works the same anywhere: `--file` overrides it, and
+   `jd check` looks for `extensions/` next to that `system.ncl`.
 
 Files must be tracked by git for the flakes to see them.
 
@@ -77,10 +79,8 @@ nix run .#generate   # rewrite nickel/generated/ from the new source
 nix flake check      # contracts, extensions and nu/test.nu against it
 ```
 
-Copy `jd.nix` and `nickel/generated/` into `organist/` as well.
-
 ## Checks
 
-`nix flake check` checks that `nickel/generated/` is current, that the
-`organist/` copies match, and runs `nu/test.nu`, which tests the contracts,
+`nix flake check` checks that `nickel/generated/` is current and runs
+`nu/test.nu`, which tests the contracts,
 the Nushell commands and both extensions on a scratch copy of the repo.
