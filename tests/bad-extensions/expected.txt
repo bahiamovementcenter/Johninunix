@@ -1,0 +1,6 @@
+loading them into jd failed: jd: an extension wraps _jd_no_such_function, which jd
+commands.sh: jd new is one of jd's own commands
+commands.sh: jd twice is added twice
+commands.sh: jd orphan runs _bad_orphan, which no extension defines
+adapters/calendar: jd has no calendar adapters
+adapters/tasks/partial.sh does not define: jd_tasks_create jd_tasks_link jd_tasks_prepare jd_tasks_refresh

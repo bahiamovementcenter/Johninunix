@@ -1,4 +1,6 @@
-# Nushell front end for jd. In nu, from this folder: `use nu/jd.nu`
+# Nushell front end for jd. In nu: `use jd.nu`, with this folder in
+# NU_LIB_DIRS (the development shells set it), or `use nu/jd.nu` from the
+# repository's top folder. The jd package installs it in share/johnnydecimal/nu.
 #
 #   jd 11.11            run jd; a target that is a folder changes into it
 #   jd ids [10-19|11]   the IDs on disk, as a table
@@ -9,6 +11,10 @@
 #
 # It wraps the jd program and never changes it. The commands that take
 # --file read $env.JD_SYSTEM, or else system.ncl in the current folder.
+# system.ncl can `import "johnny-decimal.ncl"`: Nickel looks for it in
+# ../nickel from this file, where the repository and the package keep it.
+
+const nickel_lib = path self | path dirname | path join ".." "nickel" | path expand
 
 # Run jd. When jd resolves a folder, change into it.
 export def --env --wrapped main [...args: string] {
@@ -34,16 +40,22 @@ def system-file [file?: path] {
   $file | default $env.JD_SYSTEM? | default "system.ncl" | path expand
 }
 
+# A path from system.ncl: ~ is the home folder, and a relative path is
+# relative to the folder system.ncl is in
+def resolve [dir: string, p: string] {
+  if ($p | str starts-with "~") { $p | path expand } else { $dir | path join $p | path expand }
+}
+
 # system.ncl as a record, with root and the JDex path made absolute
 def load [file?: path] {
   let file = system-file $file
   let dir = $file | path dirname
-  let project = ^nickel export --format json $file | from json
+  let project = ^nickel export --format json --import-path $nickel_lib $file | from json
   let systems = $project.config.systems | each { |s|
-    let s = $s | upsert root ($dir | path join $s.root | path expand)
+    let s = $s | upsert root (resolve $dir $s.root)
     let jdex = jdex-path $s
     if $jdex != null {
-      $s | upsert jdex.path ($dir | path join $jdex | path expand)
+      $s | upsert jdex.path (resolve $dir $jdex)
     } else {
       $s
     }
@@ -78,8 +90,9 @@ def subdirs [dirs: list<string>, pattern: string] {
   } | flatten
 }
 
-# The areas, categories and IDs on disk under a root
+# The areas, categories and IDs on disk under a root (none before it exists)
 def jd-folders [root: string] {
+  if not ($root | path exists) { return [] }
   let areas = subdirs [$root] '^\d0-\d9 '
   let categories = subdirs $areas '^\d\d '
   let ids = subdirs $categories '^\d\d\.\d\d '

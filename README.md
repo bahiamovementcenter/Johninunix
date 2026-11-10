@@ -3,26 +3,45 @@
 A [Johnny.Decimal](https://johnnydecimal.com) environment built with Nix,
 [Nickel](https://nickel-lang.org) and [Nushell](https://www.nushell.sh),
 around the official [jd](https://github.com/johnnydecimal/cli.johnnydecimal.com)
-command-line tool. jd itself is never forked: it's fetched at a pinned
-revision, and everything here is layered around it.
+command-line tool. jd itself is never forked: it's fetched at a release tag
+(the `jd-src` flake input), and everything here is layered around it.
+
+For your own system, start a repository from the template:
+
+```sh
+mkdir my-system && cd my-system && git init
+nix flake init -t github:bahiamovementcenter/Johninunix
+```
+
+It has a `system.ncl`, an `extensions/` folder and a shell with jd, and it
+takes jd, the contracts and `jd.nu` from this repository as one input.
+Set `root` and `jdex` in `system.ncl` to your folders, then
+`git add -A && nix develop`. `nix flake update johninunix` brings a newer
+jd along with contracts that match it.
+
+To work on this repository itself:
 
 ```sh
 nix develop          # jd, jdd, nickel, nu
 nu
-use nu/jd.nu
+use jd.nu
 jd write-config      # jd's config.json, from the system in $env.JD_SYSTEM
 jd scaffold          # create the folders and JDex notes it declares
 jd check             # compare it with the disk and with its extensions/
 ```
 
 The shell points `JD_SYSTEM` at `example/system.ncl`, and `JD_CONFIG` and
-`JDD_ROOT` into `example/`, from any folder in the repository. The example
+`JDD_ROOT` into `example/`, from any folder in the repository. It also puts
+`nickel/` on `NICKEL_IMPORT_PATH` and `nu/` on `NU_LIB_DIRS`, so a
+`system.ncl` can `import "johnny-decimal.ncl"` and nu can `use jd.nu`. The example
 system's root is `example/` and its JDex is `example/jdex/`, so scaffolding
 never writes into the tool's own files (`example/.gitignore` ignores what it
 creates). Point `root` and `jdex.path` at your real folders, or set
 `JD_SYSTEM` to your own `system.ncl`, before you scaffold for real.
 
-`jdex` follows jd's config version 2: `{ path = "..." }` for a folder of
+In a `system.ncl`, a path that starts with `~` is in your home folder, and
+any other relative path is relative to the file. `jdex` follows jd's config
+version 2: `{ path = "..." }` for a folder of
 notes, plus `app = "obsidian"` (and `vault`) for an Obsidian vault, or
 `{ app = "bear" }` for a JDex in Bear.
 
@@ -30,12 +49,13 @@ notes, plus `app = "obsidian"` (and `vault`) for an Obsidian vault, or
 
 | Folder | What's in it |
 | --- | --- |
-| `pkgs/jd/` | `jd.nix`, the package, and `jd-ext.sh`, the extension loader it installs |
+| `pkgs/jd/` | `jd.nix`, the package; `jd-ext.sh`, the extension loader it installs; `check-extensions.sh`, its build-time check |
 | `nickel/` | `johnny-decimal.ncl`, the contracts, and `generated/`, facts read from the pinned jd |
 | `nu/` | `jd.nu`, the Nushell module |
 | `example/` | an example `system.ncl` and its `extensions/` |
 | `scripts/` | `generate.nu`, which writes `nickel/generated/` |
-| `tests/` | `test.nu`, and `reject/`: declarations the contracts must reject |
+| `tests/` | `test.nu` and `template.nu`; `reject/`, declarations the contracts must reject; `bad-extensions/`, extensions the build must reject |
+| `templates/default/` | the template for your own system's repository |
 | `organist/` | the same shell defined with Organist |
 
 ## The layers
@@ -51,7 +71,7 @@ Each layer works without the ones after it.
    commands and adapter interface. Extensions are checked against them, so a
    jd upgrade that renames a function an extension wraps fails evaluation
    instead of breaking at run time.
-2. **A Nushell front end.** `use nu/jd.nu` gives:
+2. **A Nushell front end.** `use jd.nu` gives:
 
    | Command | What it does |
    | --- | --- |
@@ -65,6 +85,11 @@ Each layer works without the ones after it.
    The commands read `$env.JD_SYSTEM`, or `system.ncl` in the current
    folder; `--file` overrides both. `jd check` looks for `extensions/` next
    to that `system.ncl`.
+
+   The jd package carries both layers: `share/johnnydecimal/nickel/` holds
+   the contracts and `share/johnnydecimal/nu/` holds `jd.nu`, which finds
+   the contracts beside it. So a system outside this repository gets the
+   ones that match its jd.
 3. **Extensions inside jd.** `pkgs/jd/jd.nix` adds one line to jd that
    loads every `*.sh` in the folder given to `jd.withExtensions` before jd
    runs a command, plus any in `~/.config/johnnydecimal/ext/`. `jd_wrap FN`
@@ -75,32 +100,44 @@ Each layer works without the ones after it.
    adapters go in `extensions/adapters/{tasks,notes}/`. Declare each
    extension in the `system.ncl` next to it.
 
-   Other flakes can use the overlay: `pkgs.jd.withExtensions ./dir`.
+   `jd.withExtensions` checks the extensions when it builds jd, and the
+   build fails if one wraps a function jd doesn't define (or two wrap the
+   same one), adds one of jd's own commands or the same command twice, or
+   is an adapter that lacks a function jd calls. Other flakes can use the
+   overlay: `pkgs.jd.withExtensions ./dir`.
 4. **Organist.** `organist/` is the same development shell defined in
    Nickel with [Organist](https://github.com/nickel-lang/organist)
    (`cd organist && nix develop`; Organist writes `nickel.lock.ncl` into the
    current folder). It's a flake of its own, and it takes jd and its
    extensions from the root flake through a `path:..` input, so nothing is
-   copied. Its shell sets the same `JD_SYSTEM`, `JD_CONFIG` and `JDD_ROOT`;
-   from `organist/`, `use ../nu/jd.nu`.
+   copied. Its shell sets the same variables as the root one.
 
 Files must be tracked by git for the flakes to see them.
 
 ## Upgrading jd
 
 The package turns off jd's daily check for a newer version, and `jd update`
-can't work, because the Nix store copy isn't a git clone. Change `version`,
-`rev` and `hash` in `pkgs/jd/jd.nix` instead, then:
+can't work, because the Nix store copy isn't a git clone. Change the tag in
+the `jd-src` input in `flake.nix` instead (the package reads jd's version
+from its source), then:
 
 ```sh
-nix run .#generate   # rewrite nickel/generated/ from the new source
-nix flake check      # contracts, extensions and tests/test.nu against it
+nix flake update jd-src                        # lock the new tag
+nix run .#generate                             # rewrite nickel/generated/ from it
+(cd organist && nix flake update johninunix)   # Organist's copy of the lock
+nix flake check                                # everything below, against it
 ```
 
 ## Checks
 
-`nix flake check` checks that `nickel/generated/` is current and runs
-`tests/test.nu` on a copy of the files it uses. That tests every
-declaration in `tests/reject/` (each names the message it must fail with
-on its first line), the Nushell commands, and both example extensions.
+`nix flake check` checks that `nickel/generated/` is current and runs:
+
+- `tests/test.nu`, on a copy of the files it uses. It tests every
+  declaration in `tests/reject/` (each names the message it must fail with
+  on its first line), the Nushell commands, and both example extensions.
+- `tests/template.nu`, on a copy of the template, with the contracts and
+  `jd.nu` from the package rather than from the repository.
+- the build-time extension check on `tests/bad-extensions/`, which must
+  report each message in its `expected.txt`.
+
 `nix fmt` formats the Nix files.
