@@ -71,6 +71,14 @@ jd new wp 11.21 Second one >/dev/null 2>err || no "second wp: $(cat err)"
 has 'second wp: next number' jdex.org '** W0002~11.21 Second one'
 [ "$(grep -c '^\* W0000' jdex.org)" -eq 1 ] && ok 'second wp: one area' || no 'second wp: one area'
 
+# W0003 and W0009 are the area's templates and archive folders, so jd steps
+# over them (wp-numbers.patch)
+jd new wp 11.21 Third >/dev/null 2>err || no "third wp: $(cat err)"
+has 'third wp: W0004, past the templates folder W0003' jdex.org '** W0004~11.21 Third'
+for i in 5 6 7 8; do jd new wp 11.21 "Number $i" >/dev/null 2>err || no "wp $i: $(cat err)"; done
+jd new wp 11.21 Tenth >/dev/null 2>err || no "tenth wp: $(cat err)"
+has 'then W0010, past the archive W0009' jdex.org '** W0010~11.21 Tenth'
+
 jd jdex w0002 2>err
 has 'jdex W0002 opens the work package' err 'opened W0000-9999 Work packages/W0002~11.21 Second one in Org'
 
@@ -79,6 +87,19 @@ rm -r "root/10-19 Life admin/11 Me/11.20 Manual"
 jd 11.20 >/dev/null 2>err
 [ -d "root/10-19 Life admin/11 Me/11.20 Manual" ] && ok 'jd 11.20 creates the folder from the JDex' ||
   no "jd 11.20 creates the folder from the JDex: $(cat err)"
+
+# workPackages.firstNumber: a system that leaves W0000-W0009 to the area
+mkdir -p first/root "first/root/10-19 A/11 B/11.11 C"
+printf '* 10-19 A\n** 11 B\n*** 11.11 C\n' >first/jdex.org
+cat >first/config.json <<JSON
+{ "version": 2, "systems": [ { "sys": "P76", "default": true, "root": "$t/first/root",
+  "jdex": { "app": "org", "path": "$t/first/jdex.org" }, "workPackages": { "firstNumber": 10 } } ] }
+JSON
+JD_CONFIG=$t/first/config.json jd new wp 11.11 One >/dev/null 2>err || no "firstNumber: $(cat err)"
+has 'firstNumber 10: the first work package is W0010' first/jdex.org '** W0010~11.11 One'
+sed -i 's/"firstNumber": 10/"firstNumber": "ten"/' first/config.json
+JD_CONFIG=$t/first/config.json jd new wp 11.11 Two >/dev/null 2>err && no 'firstNumber "ten" is refused' ||
+  has 'firstNumber "ten" is refused' err 'workPackages.firstNumber is'
 
 printf '\n--- jdex.org\n'
 cat jdex.org

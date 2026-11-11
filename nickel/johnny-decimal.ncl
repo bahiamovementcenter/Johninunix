@@ -122,7 +122,15 @@ let System = {
   jdex | doc "Where the JDex is, like { path = \"jdex\" } or { app = \"bear\" }" | Jdex | validator jdex_errors | optional,
   default | Bool | default = false,
   standard_zeros | doc "Add .00 to .05 and .09 to every category" | Bool | default = true,
-  work_packages | { tasks | Tasks | optional } | optional,
+  work_packages
+    | {
+      tasks | Tasks | optional,
+      first_number
+        | doc "The lowest W number jd gives a work package: 10 leaves W0000 to W0009 to the area. jd never gives W0003 or W0009"
+        | validator (fun n => if std.is_number n && std.number.is_integer n && n >= 1 && n <= 9999 then [] else ["first_number is a whole number from 1 to 9999"])
+        | optional,
+    }
+    | optional,
   areas | doc "Range → area, like \"10-19\"" | { _ | Area } | validator area_errors,
 }
 in
@@ -179,7 +187,17 @@ in
 let config_of = fun s =>
   { sys = s.sys, title = s.title, root = s.root, default = s.default }
   & (if std.record.has_field "jdex" s then { jdex = s.jdex } else {})
-  & (if std.record.has_field "work_packages" s then { workPackages = s.work_packages } else {})
+  & (
+    if std.record.has_field "work_packages" s then
+      let w = s.work_packages in
+      {
+        workPackages =
+          (if std.record.has_field "tasks" w then { tasks = w.tasks } else {})
+          & (if std.record.has_field "first_number" w then { firstNumber = w.first_number } else {}),
+      }
+    else
+      {}
+  )
 in
 # A category's IDs, with the standard zeros it doesn't name itself
 let ids_of = fun s c category =>

@@ -24,8 +24,13 @@
   # jd's source: a checkout of johnnydecimal/cli.johnnydecimal.com
   src,
   # Changes to jd's own files, applied to src before anything reads it:
-  # jdex-store.patch makes the JDex app pluggable (lib/adapters/jdex/)
-  patches ? [ ./jdex-store.patch ],
+  # jdex-store.patch makes the JDex app pluggable (lib/adapters/jdex/);
+  # wp-numbers.patch keeps work packages off W0003 and W0009, and reads
+  # workPackages.firstNumber
+  patches ? [
+    ./jdex-store.patch
+    ./wp-numbers.patch
+  ],
 }:
 
 let
