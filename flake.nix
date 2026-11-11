@@ -91,6 +91,50 @@
             touch $out
           '';
 
+          # jd's own test suite, run against the package's source, with this
+          # repository's patches applied. Covers Markdown and Bear JDexes.
+          upstream =
+            pkgs.runCommand "jd-upstream-tests"
+              {
+                nativeBuildInputs = [
+                  pkgs.jq
+                  pkgs.zsh
+                  pkgs.bash
+                  pkgs.git
+                  pkgs.fish
+                ];
+              }
+              ''
+                export HOME=$TMPDIR
+                cp -r --no-preserve=mode ${pkgs.jd}/share/johnnydecimal/cli jd && cd jd
+                chmod +x bin/* test/run.sh
+                patchShebangs bin test
+                JD_TEST_SHELLS="${pkgs.bash}/bin/bash ${pkgs.zsh}/bin/zsh" sh test/run.sh > $TMPDIR/log 2>&1 || { tail -80 $TMPDIR/log; exit 1; }
+                tail -5 $TMPDIR/log
+                touch $out
+              '';
+
+          # The Org JDex store, end to end (tests/org/test.sh)
+          # tests/org/test.nu: jd.nu's scaffold and check, with the same file
+          org =
+            pkgs.runCommand "jd-org-test"
+              {
+                nativeBuildInputs = [
+                  pkgs.jd
+                  pkgs.nickel
+                  pkgs.nushell
+                ];
+                NICKEL_IMPORT_PATH = "${pkgs.jd}/share/johnnydecimal/nickel";
+                NU_LIB_DIRS = "${pkgs.jd}/share/johnnydecimal/nu";
+              }
+              ''
+                export HOME=$TMPDIR
+                mkdir sh && (cd sh && bash ${./tests/org/test.sh})
+                cp -r --no-preserve=mode ${./tests/org} nu && cd nu
+                nu test.nu
+                touch $out
+              '';
+
           # Runs tests/test.nu on a copy of the files it uses
           system =
             pkgs.runCommand "jd-system-test"

@@ -37,7 +37,7 @@ def main [src: string, out: string, version: string, owner: string, repo: string
   # The words _jd_nav treats as commands: `[ "${1-}" = word ]` tests and the
   # patterns of its `case $1 in` statements, like `move | undo)` or
   # `-h|--help|help)`. Patterns of a `case` on anything else (since jd 5,
-  # `case $_JD_JDEX_KIND in` with `bear)` and `flat)`) are not commands.
+  # `case $_JD_JDEX_KIND in` with `store)` and `flat)`) are not commands.
   let nav = open --raw ($src | path join "lib" "nav.sh")
   let tested = $nav | parse --regex '\[ "\$\{1-\}" = (?<w>[a-z][a-z-]*) \]' | get w
   let cased = $nav | lines

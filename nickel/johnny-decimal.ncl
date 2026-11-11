@@ -92,10 +92,12 @@ let app_name = validator (fun a =>
   if std.is_string a && matches "^[a-z0-9_-]+$" a then [] else ["an app is a name of a-z, 0-9, _ and -, like obsidian"]
 )
 in
-# Where the JDex is (jd's config version 2): a folder, an app, or both
+# Where the JDex is (jd's config version 2): a folder, an app, or both. An
+# app with a JDex store (lib/adapters/jdex/, like bear and org) keeps the
+# JDex itself; any other app is a folder of Markdown notes.
 let Jdex = {
-  app | doc "The note app: obsidian, bear, or one in extensions/adapters/notes/" | app_name | optional,
-  path | doc "The folder of JDex notes. A relative path is relative to system.ncl" | String | optional,
+  app | doc "The note app: obsidian, bear, org, or one in extensions/adapters/notes/" | app_name | optional,
+  path | doc "The folder of JDex notes, or for org, the Org file. A relative path is relative to system.ncl" | String | optional,
   vault | doc "The Obsidian vault's name" | String | optional,
 }
 in

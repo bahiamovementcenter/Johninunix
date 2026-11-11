@@ -19,29 +19,47 @@
   lib,
   stdenvNoCC,
   makeWrapper,
+  applyPatches,
   jq,
   # jd's source: a checkout of johnnydecimal/cli.johnnydecimal.com
   src,
+  # Changes to jd's own files, applied to src before anything reads it:
+  # jdex-store.patch makes the JDex app pluggable (lib/adapters/jdex/)
+  patches ? [ ./jdex-store.patch ],
 }:
 
 let
+  upstreamSrc = src;
+  # jd's source as this package builds it: the patches, then this
+  # repository's own adapters and templates (the Org JDex store and its
+  # work package links), so that they're among jd's built-in ones
+  patched = applyPatches {
+    name = "jd-src-patched";
+    src = upstreamSrc;
+    inherit patches;
+    postPatch = ''
+      cp -r ${./adapters}/. lib/adapters/
+      cp -r ${./templates}/. templates/
+    '';
+  };
   # bin/jd sets the version, and nothing else does
   version = lib.head (
     lib.findFirst (m: m != null) (throw "jd: bin/jd sets no _JD_CLI_VERSION") (
       map (builtins.match ''_JD_CLI_VERSION="([^"]+)"'') (
-        lib.splitString "\n" (builtins.readFile "${src}/bin/jd")
+        lib.splitString "\n" (builtins.readFile "${upstreamSrc}/bin/jd")
       )
     )
   );
   upstream = {
     owner = "johnnydecimal";
     repo = "cli.johnnydecimal.com";
-    rev = src.rev or "unknown";
+    rev = upstreamSrc.rev or "unknown";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "jd";
-  inherit version src;
+  inherit version;
+  src = patched;
 
   nativeBuildInputs = [ makeWrapper ];
 

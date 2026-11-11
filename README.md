@@ -42,19 +42,46 @@ creates). Point `root` and `jdex.path` at your real folders, or set
 In a `system.ncl`, a path that starts with `~` is in your home folder, and
 any other relative path is relative to the file. `jdex` follows jd's config
 version 2: `{ path = "..." }` for a folder of
-notes, plus `app = "obsidian"` (and `vault`) for an Obsidian vault, or
-`{ app = "bear" }` for a JDex in Bear.
+notes, plus `app = "obsidian"` (and `vault`) for an Obsidian vault,
+`{ app = "bear" }` for a JDex in Bear, or
+`{ app = "org", path = "jdex.org" }` for a JDex in one Org file.
+
+### A JDex in Org
+
+This package's jd has a patch, `pkgs/jd/jdex-store.patch`, that makes the
+place the JDex lives pluggable: a *JDex store* is one file,
+`lib/adapters/jdex/<app>.sh`, and Bear is now one of them (see
+`docs/adr/0001-jdex-store.md`). `pkgs/jd/adapters/jdex/org.sh` is a
+second: the JDex is the outline of one Org file.
+
+```org
+* 10-19 Life admin
+** 11 Me
+*** 11.11 Passport
+* W0000-9999 Work packages
+** W0001~11.11 Renew it
+:PROPERTIES:
+:CUSTOM_ID: w0001
+:END:
+```
+
+`jdex 11.11` opens the heading with `$JD_ORG_EDITOR +LINE FILE` (or
+`emacsclient -n`); `jd new id` and `jd new wp` add a heading at the end of
+its category or the work package area, from `ID template.org` and
+`Work package template.org`; and `jd scaffold` in `jd.nu` writes the
+declared areas, categories and IDs into the file as headings.
 
 ## Layout
 
 | Folder | What's in it |
 | --- | --- |
-| `pkgs/jd/` | `jd.nix`, the package; `jd-ext.sh`, the extension loader it installs; `check-extensions.sh`, its build-time check |
+| `pkgs/jd/` | `jd.nix`, the package; `jdex-store.patch`, its change to jd; `adapters/` and `templates/`, the Org store it adds; `jd-ext.sh`, the extension loader it installs; `check-extensions.sh`, its build-time check |
+| `docs/adr/` | the design decisions |
 | `nickel/` | `johnny-decimal.ncl`, the contracts, and `generated/`, facts read from the pinned jd |
 | `nu/` | `jd.nu`, the Nushell module |
 | `example/` | an example `system.ncl` and its `extensions/` |
 | `scripts/` | `generate.nu`, which writes `nickel/generated/` |
-| `tests/` | `test.nu` and `template.nu`; `reject/`, declarations the contracts must reject; `bad-extensions/`, extensions the build must reject |
+| `tests/` | `test.nu` and `template.nu`; `reject/`, declarations the contracts must reject; `bad-extensions/`, extensions the build must reject; `org/`, the Org store end to end |
 | `templates/default/` | the template for your own system's repository |
 | `organist/` | the same shell defined with Organist |
 
@@ -97,7 +124,8 @@ Each layer works without the ones after it.
    `pkgs/jd/jd-ext.sh`). The shell's jd has the example's two:
    `example/extensions/stats.sh` adds `jd stats`, and `autocommit.sh`
    commits the JDex after `jd new` when `JD_AUTOCOMMIT=1`. Work-package
-   adapters go in `extensions/adapters/{tasks,notes}/`. Declare each
+   adapters go in `extensions/adapters/{tasks,notes}/`, and JDex stores in
+   `extensions/adapters/jdex/`. Declare each
    extension in the `system.ncl` next to it.
 
    `jd.withExtensions` checks the extensions when it builds jd, and the
@@ -128,6 +156,10 @@ nix run .#generate                             # rewrite nickel/generated/ from 
 nix flake check                                # everything below, against it
 ```
 
+If `jdex-store.patch` no longer applies, the build stops there. Rebase it
+on the new tag: apply it in a checkout of the tag, fix what's rejected, and
+write it out again with `git diff`.
+
 ## Checks
 
 `nix flake check` checks that `nickel/generated/` is current and runs:
@@ -139,5 +171,9 @@ nix flake check                                # everything below, against it
   `jd.nu` from the package rather than from the repository.
 - the build-time extension check on `tests/bad-extensions/`, which must
   report each message in its `expected.txt`.
+- jd's own test suite (`test/run.sh`, in bash and zsh), on the patched
+  jd, so the patch can't change what jd does with a Markdown or Bear JDex.
+- `tests/org/`: the Org store through jd itself (`test.sh`), and
+  `jd scaffold` and `jd check` with an Org JDex (`test.nu`).
 
 `nix fmt` formats the Nix files.
