@@ -21,6 +21,8 @@ const nickel_lib = path self | path dirname | path join ".." "nickel" | path exp
 export def --env --wrapped main [...args: string] {
   let r = with-env { JD_HOOK: "1" } { ^jd ...$args | complete }
   if $r.exit_code == 3 {
+    # What jd said on the way, like the lines `jd new` prints, then the folder
+    if $r.stderr != "" { print --stderr --no-newline $r.stderr }
     cd ($r.stdout | str trim)
     return
   }
