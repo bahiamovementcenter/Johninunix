@@ -148,6 +148,7 @@
                 mkdir sh && (cd sh && bash ${./tests/org/test.sh})
                 cp -r --no-preserve=mode ${./tests/org} nu && cd nu
                 nu test.nu
+                nu test.nu init
                 touch $out
               '';
 

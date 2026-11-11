@@ -50,3 +50,28 @@ def main [] {
   assert ((open --raw jdex.org | lines) | any { |l| $l == "*** 11.14 Car" })
   print "ok"
 }
+
+# `jd init` starts a system from nothing, in each JDex kind it writes to disk
+def "main init" [] {
+  for kind in [org folder] {
+    let dir = $env.PWD | path join $"init-($kind)"
+    $env.JD_CONFIG = $dir | path join ".jd" "config.json"
+    jd init $dir --jdex $kind --sys "E76" --title "Experiments" | ignore
+    assert equal $env.JD_SYSTEM ($dir | path join "system.ncl")
+    assert equal (open $env.JD_CONFIG | get systems.0.sys) "E76"
+    assert ($dir | path join "10-19 Life admin" "11 Me" "11.11 Passport" | path exists)
+    if $kind == "org" {
+      # The standard zeros are on by default, so 11.00 to 11.09 come first
+      let headings = open --raw ($dir | path join "jdex.org") | lines
+      assert equal ($headings | first 3) ["* 10-19 Life admin" "** 11 Me" "*** 11.00 JDex"]
+      assert ("*** 11.11 Passport" in $headings)
+      assert ("** 12 House" in $headings)
+    } else {
+      assert ($dir | path join "jdex" "10-19 Life admin" "11 Me" "11.11 Passport.md" | path exists)
+    }
+    assert equal (jd check | where status != "ok") []
+    let again = try { jd init $dir --jdex $kind; "replaced" } catch { "refused" }
+    assert equal $again "refused"
+  }
+  print "ok"
+}

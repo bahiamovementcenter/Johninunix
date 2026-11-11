@@ -3,6 +3,7 @@
 # repository's top folder. The jd package installs it in share/johnnydecimal/nu.
 #
 #   jd 11.11            run jd; a target that is a folder changes into it
+#   jd init [dir]       start a system: system.ncl, jd's config, then scaffold
 #   jd ids [10-19|11]   the IDs on disk, as a table
 #   jd project          system.ncl, evaluated and checked by Nickel
 #   jd write-config     write jd's config.json from system.ncl
@@ -280,6 +281,68 @@ export def write-config [
   mkdir ($target | path dirname)
   $new | save --force $target
   $target
+}
+
+# A starter system.ncl. Its root is the folder it's in, and so is its JDex.
+def starter [sys: string, title: string, jdex: string] {
+  let jdex_record = match $jdex {
+    "folder" => '{ path = "jdex" }'
+    "obsidian" => '{ app = "obsidian", path = "jdex" }'
+    "org" => '{ app = "org", path = "jdex.org" }'
+    "bear" => '{ app = "bear" }'
+    _ => (error make --unspanned { msg: $"--jdex is folder, obsidian, org or bear, not ($jdex)" })
+  }
+  [
+    $"# ($sys) ($title). Written by `jd init`; it's yours to edit. Declare your"
+    "# areas, categories and IDs here, then `jd scaffold` creates what's missing."
+    "# Relative paths are relative to this file."
+    'let jd = import "johnny-decimal.ncl" in'
+    "jd.project {"
+    "  systems = ["
+    "    {"
+    $"      sys = \"($sys)\","
+    $"      title = \"($title)\","
+    '      root = ".",'
+    $"      jdex = ($jdex_record),"
+    "      default = true,"
+    "      areas = {"
+    '        "10-19" = {'
+    '          name = "Life admin",'
+    "          categories = {"
+    '            "11" = { name = "Me", ids = { "11.11" = "Passport" } },'
+    '            "12" = { name = "House" },'
+    "          },"
+    "        },"
+    "      },"
+    "    },"
+    "  ],"
+    "}"
+    ""
+  ] | str join "\n"
+}
+
+# Start a system in a folder: write a starter system.ncl, write jd's config
+# from it, and scaffold it. It sets $env.JD_SYSTEM to the new system.ncl, so
+# the other commands use it. It won't replace a system.ncl without --force.
+export def --env init [
+  dir?: path # default: the current folder
+  --sys: string = "P76" # a letter and two digits
+  --title: string = "Personal"
+  --jdex: string = "folder" # folder, obsidian, org (one Org file) or bear
+  --force # replace an existing system.ncl
+] {
+  let dir = $dir | default $env.PWD | path expand
+  let file = $dir | path join "system.ncl"
+  if ($file | path exists) and not $force {
+    error make --unspanned { msg: $"($file) exists. Pass --force to replace it" }
+  }
+  mkdir $dir
+  starter $sys $title $jdex | save --force $file
+  $env.JD_SYSTEM = $file
+  let config = write-config --file $file
+  let made = scaffold --file $file
+  print --stderr $"jd: wrote ($file) and ($config), and created ($made | length) entries. JD_SYSTEM is set to it"
+  $made
 }
 
 # Create the folders and JDex notes that system.ncl declares and the disk

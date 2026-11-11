@@ -39,6 +39,16 @@ never writes into the tool's own files (`example/.gitignore` ignores what it
 creates). Point `root` and `jdex.path` at your real folders, or set
 `JD_SYSTEM` to your own `system.ncl`, before you scaffold for real.
 
+To start a system from nothing, `jd init` writes a starter `system.ncl`
+into a folder, writes jd's config from it, scaffolds it, and points
+`JD_SYSTEM` at it:
+
+```nu
+$env.JD_CONFIG = "/tmp/jd-try/.jd/config.json"   # keep a trial away from your real config
+jd init /tmp/jd-try --jdex org                   # or folder (default), obsidian, bear
+jd new id 11 Car
+```
+
 In a `system.ncl`, a path that starts with `~` is in your home folder, and
 any other relative path is relative to the file. `jdex` follows jd's config
 version 2: `{ path = "..." }` for a folder of
@@ -103,6 +113,7 @@ Each layer works without the ones after it.
    | Command | What it does |
    | --- | --- |
    | `jd 11.11` | run jd; a target that is a folder changes into it |
+   | `jd init [dir]` | start a system: a starter `system.ncl` (`--sys`, `--title`, `--jdex folder\|obsidian\|org\|bear`), jd's config, then scaffold |
    | `jd ids [10-19\|11]` | the IDs on disk, as a table |
    | `jd project` | the system, evaluated and checked |
    | `jd write-config` | write jd's `config.json` (won't replace a different one without `--force`) |
