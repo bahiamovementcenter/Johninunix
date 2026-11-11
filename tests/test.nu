@@ -36,6 +36,7 @@ def main [] {
   let config = open $env.JD_CONFIG
   assert equal $config.version 2 "jd 5 reads config version 2"
   assert equal $config.systems.0.jdex.path ($example | path join "jdex")
+  assert equal $config.systems.0.workPackages.firstNumber 11 "work packages start at W0011, as the Johnny.Decimal docs advise"
   assert ((jd scaffold | length) > 0)
   assert equal (jd scaffold --dry-run) []
   assert ($example | path join "10-19 Life admin" | path exists) "scaffold wrote outside example/"

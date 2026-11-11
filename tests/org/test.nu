@@ -66,6 +66,9 @@ def "main init" [] {
       assert equal ($headings | first 3) ["* 10-19 Life admin" "** 11 Me" "*** 11.00 JDex"]
       assert ("*** 11.11 Passport" in $headings)
       assert ("** 12 House" in $headings)
+      # system.ncl starts work packages at W0011, as the Johnny.Decimal docs advise
+      do { jd new wp 11.11 "First one" } | ignore
+      assert ("** W0011~11.11 First one" in (open --raw ($dir | path join "jdex.org") | lines))
     } else {
       assert ($dir | path join "jdex" "10-19 Life admin" "11 Me" "11.11 Passport.md" | path exists)
     }

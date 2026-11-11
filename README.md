@@ -172,8 +172,11 @@ store above. `wp-numbers.patch` fixes a jd 5.0.1 bug: in a new system the
 third work package fails, because the first one creates the folder
 `W0003 Templates for area W0000-9999` and the third is numbered W0003.
 With the patch, jd steps over W0003 and W0009, the templates and the
-archive. `work_packages.first_number = 10` in `system.ncl` starts the
-numbers at W0010 instead, leaving W0000 to W0009 to the area.
+archive. `system.ncl` also sets `workPackages.firstNumber` to 11 for
+every system, so your first work package is W0011, as the Johnny.Decimal
+docs advise, and W0000 to W0010 stay with the area. Set
+`work_packages.first_number` to change it. jd's own default, used by a
+config that doesn't come from `system.ncl`, is still W0001.
 
 If a patch no longer applies, the build stops there. Rebase it on the new
 tag: apply it in a checkout of the tag, fix what's rejected, and write it

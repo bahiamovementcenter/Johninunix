@@ -126,11 +126,11 @@ let System = {
     | {
       tasks | Tasks | optional,
       first_number
-        | doc "The lowest W number jd gives a work package: 10 leaves W0000 to W0009 to the area. jd never gives W0003 or W0009"
+        | doc "The lowest W number jd gives a work package. The default, 11, follows the Johnny.Decimal docs (\"start your own work packages at W0011\") and leaves W0000 to W0010 to the area. jd never gives W0003 or W0009"
         | validator (fun n => if std.is_number n && std.number.is_integer n && n >= 1 && n <= 9999 then [] else ["first_number is a whole number from 1 to 9999"])
-        | optional,
+        | default = 11,
     }
-    | optional,
+    | default = {},
   areas | doc "Range → area, like \"10-19\"" | { _ | Area } | validator area_errors,
 }
 in
@@ -188,15 +188,12 @@ let config_of = fun s =>
   { sys = s.sys, title = s.title, root = s.root, default = s.default }
   & (if std.record.has_field "jdex" s then { jdex = s.jdex } else {})
   & (
-    if std.record.has_field "work_packages" s then
-      let w = s.work_packages in
-      {
-        workPackages =
-          (if std.record.has_field "tasks" w then { tasks = w.tasks } else {})
-          & (if std.record.has_field "first_number" w then { firstNumber = w.first_number } else {}),
-      }
-    else
-      {}
+    let w = s.work_packages in
+    {
+      workPackages =
+        (if std.record.has_field "tasks" w then { tasks = w.tasks } else {})
+        & { firstNumber = w.first_number },
+    }
   )
 in
 # A category's IDs, with the standard zeros it doesn't name itself

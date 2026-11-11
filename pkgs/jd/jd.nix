@@ -26,7 +26,7 @@
   # Changes to jd's own files, applied to src before anything reads it:
   # jdex-store.patch makes the JDex app pluggable (lib/adapters/jdex/);
   # wp-numbers.patch keeps work packages off W0003 and W0009, and reads
-  # workPackages.firstNumber
+  # workPackages.firstNumber (system.ncl sets it to 11)
   patches ? [
     ./jdex-store.patch
     ./wp-numbers.patch
