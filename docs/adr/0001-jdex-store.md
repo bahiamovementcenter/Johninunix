@@ -176,5 +176,6 @@ D doesn't meet the goal.
 3. [x] `jdex/org.sh`, `notes/org.sh`, Org work package template
 4. [x] `jd.nu`: scaffold and check with an Org JDex; Nickel docs
 5. [x] Tests: `tests/org/test.sh` (jd), `tests/org/test.nu` (jd.nu)
-6. [ ] Ash: try it on a real Org file, with Emacs
-7. [ ] Decide whether to open the upstream PR
+6. [x] Real Emacs (nixpkgs `emacs-nox`) in `nix flake check`: `tests/org/emacs.sh`
+7. [ ] Ash: try it on your own Org file
+8. [ ] Decide whether to open the upstream PR

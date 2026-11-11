@@ -115,6 +115,22 @@
               '';
 
           # The Org JDex store, end to end (tests/org/test.sh)
+          # tests/org/emacs.sh: the same store with real Emacs, which parses
+          # what jd wrote, follows its links, and is opened by `jdex`
+          org-emacs =
+            pkgs.runCommand "jd-org-emacs-test"
+              {
+                nativeBuildInputs = [
+                  pkgs.jd
+                  pkgs.emacs-nox
+                ];
+              }
+              ''
+                mkdir work && cd work
+                bash ${./tests/org/emacs.sh}
+                touch $out
+              '';
+
           # tests/org/test.nu: jd.nu's scaffold and check, with the same file
           org =
             pkgs.runCommand "jd-org-test"

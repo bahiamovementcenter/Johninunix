@@ -173,7 +173,9 @@ write it out again with `git diff`.
   report each message in its `expected.txt`.
 - jd's own test suite (`test/run.sh`, in bash and zsh), on the patched
   jd, so the patch can't change what jd does with a Markdown or Bear JDex.
-- `tests/org/`: the Org store through jd itself (`test.sh`), and
-  `jd scaffold` and `jd check` with an Org JDex (`test.nu`).
+- `tests/org/`: the Org store through jd itself (`test.sh`); with real
+  Emacs from nixpkgs, which parses what jd wrote, follows its links, passes
+  `org-lint`, and is opened by `jdex` through `emacsclient` (`emacs.sh`);
+  and `jd scaffold` and `jd check` with an Org JDex (`test.nu`).
 
 `nix fmt` formats the Nix files.
