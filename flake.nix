@@ -109,7 +109,7 @@
                 cp -r --no-preserve=mode ${pkgs.jd}/share/johnnydecimal/cli jd && cd jd
                 chmod +x bin/* test/run.sh
                 patchShebangs bin test
-                JD_TEST_SHELLS="${pkgs.bash}/bin/bash ${pkgs.zsh}/bin/zsh" sh test/run.sh > $TMPDIR/log 2>&1 || { tail -80 $TMPDIR/log; exit 1; }
+                JD_TEST_SHELLS="${pkgs.bash}/bin/bash ${pkgs.zsh}/bin/zsh" sh test/run.sh > $TMPDIR/log 2>&1 || { grep -A6 "^not ok" $TMPDIR/log; tail -3 $TMPDIR/log; exit 1; }
                 tail -5 $TMPDIR/log
                 touch $out
               '';
