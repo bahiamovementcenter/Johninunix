@@ -58,9 +58,9 @@ awk '/11.21 Passport/ { a = NR } /^\*\* 12 House/ { b = NR } END { exit !(a && b
 jd new wp 11.11 Renew it --json >out 2>err || no "new wp: $(cat err)"
 has 'new wp: area added' jdex.org '* W0000-9999 Work packages'
 has 'new wp: note' jdex.org '** W0001~11.11 Renew it'
-has 'new wp: CUSTOM_ID' jdex.org ':CUSTOM_ID: w0001'
+has 'new wp: CUSTOM_ID' jdex.org ':CUSTOM_ID: W0001'
 has 'new wp: parent link' jdex.org '- Parent :: [[*11.11 Birth certificate]]'
-has 'new wp: its own link' jdex.org "- JDex :: [[file:$t/jdex.org::#w0001][JDex]]"
+has 'new wp: its own link' jdex.org "- JDex :: [[file:$t/jdex.org::#W0001][JDex]]"
 has "new wp: the template's heading is below the note" jdex.org '*** Scope'
 grep -q 'Tasks ::' jdex.org && no 'new wp: an empty tasks link is left out' || ok 'new wp: an empty tasks link is left out'
 [ -d "root/W0000-9999 Work packages/W0001~11.11 Renew it" ] && ok 'new wp: folder' || no 'new wp: folder'

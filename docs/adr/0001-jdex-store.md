@@ -93,9 +93,9 @@ One Org file is the JDex (`jdex = { app = "org", path = "jdex.org" }`).
 Level-1 headings are areas, level 2 categories (or work packages under
 `* W0000…`), and level 3 IDs. Headings are matched by their leading number,
 like folders, and tags are ignored. `jd new` appends a heading at the end
-of its container with a `CUSTOM_ID` (`11.21`, `w0001`), and template
+of its container with a `CUSTOM_ID` (`11.21`, `W0001`), and template
 headings are demoted below it. `notes/org.sh` links with
-`file:…::#w0001` and `[[*11.11 Title]]`. Opening uses
+`file:…::#W0001` and `[[*11.11 Title]]`. Opening uses
 `$JD_ORG_EDITOR +LINE FILE`, or `emacsclient -n`. On our side,
 `jd scaffold` writes the declared outline into the file and `jd check`
 reads it.

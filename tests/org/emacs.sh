@@ -39,13 +39,13 @@ same 'Org reads the outline jd wrote' \
   '1 10-19 Life admin|2 11 Me|3 11.11 Birth certificate|3 11.12 Passport|2 12 House|1 W0000-9999 Work packages|2 W0001~11.11 Renew it|3 Scope|' \
   "$(el '(org-map-entries (lambda () (princ (format "%d %s|" (org-current-level) (org-get-heading t t t t)))))')"
 same 'the CUSTOM_ID link jd wrote reaches the work package' 'W0001~11.11 Renew it' \
-  "$(el '(progn (org-link-search "#w0001") (princ (org-get-heading t t t t)))')"
+  "$(el '(progn (org-link-search "#W0001") (princ (org-get-heading t t t t)))')"
 same 'the parent link reaches the ID' '11.11 Birth certificate' \
   "$(el '(progn (org-link-search "*11.11 Birth certificate") (princ (org-get-heading t t t t)))')"
 same 'the ID has its CUSTOM_ID property' '11.12' \
   "$(el '(progn (org-link-search "*11.12 Passport") (princ (org-entry-get nil "CUSTOM_ID")))')"
-same 'the file:...::#w0001 link jd printed opens the work package' 'W0001~11.11 Renew it' \
-  "$(emacs -Q --batch --eval "(progn (require 'org) (org-link-open-from-string \"[[file:$t/jdex.org::#w0001]]\") (princ (org-get-heading t t t t)))" 2>/dev/null)"
+same 'the file:...::#W0001 link jd printed opens the work package' 'W0001~11.11 Renew it' \
+  "$(emacs -Q --batch --eval "(progn (require 'org) (org-link-open-from-string \"[[file:$t/jdex.org::#W0001]]\") (princ (org-get-heading t t t t)))" 2>/dev/null)"
 same 'org-lint finds nothing' '' \
   "$(el '(progn (require (quote org-lint)) (dolist (r (org-lint)) (princ (format "%S\n" r))))')"
 

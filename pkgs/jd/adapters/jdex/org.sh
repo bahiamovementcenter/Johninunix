@@ -16,7 +16,7 @@
 # '10-19 Life admin/11 Me'. A locator is org:<line>.
 #
 # A note that jd writes is a heading at the end of its container, with a
-# CUSTOM_ID: the ID, '11.11', or the work package's number, 'w0001'. A
+# CUSTOM_ID: the ID, '11.11', or the work package's number, 'W0001'. A
 # heading in the template becomes a heading below it.
 #
 # jd opens a heading with $JD_ORG_EDITOR, called with '+LINE FILE', or
@@ -148,10 +148,10 @@ jd_jdex_wp_area() {
 
 jd_jdex_where() { printf 'Org: %s, under %s in %s' "$1" "$2" "$_JD_JDEX_PATH"; }
 
-# The CUSTOM_ID of note $1: 'w0001' or '11.11'.
+# The CUSTOM_ID of note $1: 'W0001' or '11.11'.
 _jd_org_cid() {
   case $1 in
-    [Ww][0-9][0-9][0-9][0-9]*) printf '%s' "$1" | cut -c1-5 | tr 'A-Z' 'a-z' ;;
+    [Ww][0-9][0-9][0-9][0-9]*) printf '%s' "$1" | cut -c1-5 | tr 'a-z' 'A-Z' ;;
     *) printf '%s' "${1%% *}" ;;
   esac
 }

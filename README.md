@@ -71,7 +71,7 @@ second: the JDex is the outline of one Org file.
 * W0000-9999 Work packages
 ** W0001~11.11 Renew it
 :PROPERTIES:
-:CUSTOM_ID: w0001
+:CUSTOM_ID: W0001
 :END:
 ```
 
