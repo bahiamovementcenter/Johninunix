@@ -1,34 +1,47 @@
 # The official Johnny.Decimal command-line tool (jd). It isn't packaged in
-# Nixpkgs, so it's fetched at a pinned revision and wrapped so that jq is
-# always on its PATH. The wrapper also turns off jd's daily check for a
-# newer version: this copy is in the Nix store, not a git clone, so
-# `jd update` can't apply one. Upgrade by changing the pin below.
+# Nixpkgs. Its source is the flake's `jd-src` input, pinned in flake.lock,
+# and it's wrapped so that jq is always on its PATH. The wrapper also turns
+# off jd's daily check for a newer version: this copy is in the Nix store,
+# not a git clone, so `jd update` can't apply one.
+#
+# The package also holds this repository's Nickel contracts and Nushell
+# module, which match this jd:
+#
+#   share/johnnydecimal/nickel/  johnny-decimal.ncl, for NICKEL_IMPORT_PATH
+#   share/johnnydecimal/nu/      jd.nu, for NU_LIB_DIRS
 #
 # `jd.withExtensions ./extensions` adds your own extensions: every
 # `extensions/*.sh` is loaded by jd before it runs a command (see jd-ext.sh),
 # and `extensions/adapters/{tasks,notes}/*.sh` are installed as work-package
-# adapters.
+# adapters. The build fails if one of them doesn't fit this jd (see
+# check-extensions.sh).
 {
   lib,
   stdenvNoCC,
-  fetchFromGitHub,
   makeWrapper,
   jq,
+  # jd's source: a checkout of johnnydecimal/cli.johnnydecimal.com
+  src,
 }:
 
 let
+  # bin/jd sets the version, and nothing else does
+  version = lib.head (
+    lib.findFirst (m: m != null) (throw "jd: bin/jd sets no _JD_CLI_VERSION") (
+      map (builtins.match ''_JD_CLI_VERSION="([^"]+)"'') (
+        lib.splitString "\n" (builtins.readFile "${src}/bin/jd")
+      )
+    )
+  );
   upstream = {
     owner = "johnnydecimal";
     repo = "cli.johnnydecimal.com";
-    rev = "21f5eb2eb81cd17f127e9624f967e75339a86eed";
-    hash = "sha256-rCxwL4SkRRFeyzR4UccuoZ61BXJJ1szHmfnIGQJ1Y0M=";
+    rev = src.rev or "unknown";
   };
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "jd";
-  version = "5.0.1";
-
-  src = fetchFromGitHub upstream;
+  inherit version src;
 
   nativeBuildInputs = [ makeWrapper ];
 
@@ -66,7 +79,22 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       --prefix PATH : ${lib.makeBinPath [ jq ]} \
       --set-default JD_NO_UPDATE_CHECK 1
 
+    # The contracts and the Nushell module, side by side as in the
+    # repository: jd.nu finds the contracts at ../nickel
+    share=$out/share/johnnydecimal
+    mkdir -p $share/nickel $share/nu
+    cp -r ${../../nickel}/. $share/nickel/
+    cp ${../../nu/jd.nu} $share/nu/jd.nu
+
     runHook postInstall
+  '';
+
+  # Load the extensions into the installed jd and check them against it
+  doInstallCheck = finalAttrs.extensions != null;
+  installCheckPhase = lib.optionalString (finalAttrs.extensions != null) ''
+    runHook preInstallCheck
+    bash ${./check-extensions.sh} $out ${finalAttrs.extensions}
+    runHook postInstallCheck
   '';
 
   passthru = {

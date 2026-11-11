@@ -15,7 +15,8 @@ in
 
 # jd with the example system's extensions, from the root flake (the
 # `johninunix` input). This folder holds only the Organist files: the
-# system, nickel/ and nu/ are read from the root through JD_SYSTEM.
+# system, nickel/ and nu/ are read from the root through JD_SYSTEM,
+# NICKEL_IMPORT_PATH and NU_LIB_DIRS.
 let jd_with_extensions = organist.import_nix "johninunix#default" in
 
 organist.OrganistExpression
@@ -38,6 +39,8 @@ organist.OrganistExpression
       # repository's top folder, from any folder inside it
       hooks.jd_paths = m%"
         _jd_top=$(git rev-parse --show-toplevel 2>/dev/null || (cd .. && pwd))
+        export NICKEL_IMPORT_PATH="$_jd_top/nickel${NICKEL_IMPORT_PATH:+:$NICKEL_IMPORT_PATH}"
+        export NU_LIB_DIRS="$_jd_top/nu${NU_LIB_DIRS:+:$NU_LIB_DIRS}"
         export JD_SYSTEM="${JD_SYSTEM:-$_jd_top/example/system.ncl}"
         export JD_CONFIG="${JD_CONFIG:-$_jd_top/example/.jd/config.json}"
         export JDD_ROOT="${JDD_ROOT:-$_jd_top/example}"
@@ -49,7 +52,7 @@ organist.OrganistExpression
           jd = jd_with_extensions, # find, create and move IDs
           jdd = organist.import_nix "nixpkgs#jdd", # files new documents into the right folder by name
           nickel = organist.import_nix "nixpkgs#nickel", # evaluates system.ncl
-          nushell = organist.import_nix "nixpkgs#nushell", # nu/jd.nu: `use nu/jd.nu` in nu
+          nushell = organist.import_nix "nixpkgs#nushell", # `use jd.nu` in nu
           nixfmt = organist.import_nix "nixpkgs#nixfmt",
         },
     },

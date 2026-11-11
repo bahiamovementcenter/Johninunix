@@ -1,5 +1,23 @@
 {
   "nodes": {
+    "jd-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794027716,
+        "narHash": "sha256-rCxwL4SkRRFeyzR4UccuoZ61BXJJ1szHmfnIGQJ1Y0M=",
+        "ref": "refs/tags/v5.0.1",
+        "rev": "21f5eb2eb81cd17f127e9624f967e75339a86eed",
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/johnnydecimal/cli.johnnydecimal.com"
+      },
+      "original": {
+        "ref": "refs/tags/v5.0.1",
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/johnnydecimal/cli.johnnydecimal.com"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1793876309,
@@ -16,6 +34,7 @@
     },
     "root": {
       "inputs": {
+        "jd-src": "jd-src",
         "nixpkgs": "nixpkgs"
       }
     }

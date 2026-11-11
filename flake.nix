@@ -1,7 +1,16 @@
 {
   description = "A Nix-flake-based Johnny Decimal development environment";
 
-  inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+  inputs = {
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1"; # unstable Nixpkgs
+
+    # jd's source, at a release tag. To upgrade, change the tag, then run
+    # `nix flake update jd-src` and `nix run .#generate`.
+    jd-src = {
+      url = "git+https://github.com/johnnydecimal/cli.johnnydecimal.com?ref=refs/tags/v5.0.1&shallow=1";
+      flake = false;
+    };
+  };
 
   outputs =
     { self, ... }@inputs:
@@ -27,7 +36,20 @@
     in
     {
       # `pkgs.jd` for other flakes; `pkgs.jd.withExtensions ./dir` adds extensions
-      overlays.default = final: prev: { jd = final.callPackage ./pkgs/jd/jd.nix { }; };
+      overlays.default = final: prev: {
+        jd = final.callPackage ./pkgs/jd/jd.nix { src = inputs.jd-src; };
+      };
+
+      # `nix flake init -t github:bahiamovementcenter/Johninunix`: a repository
+      # for your own system, with this one as an input
+      templates.default = {
+        path = ./templates/default;
+        description = "Your own Johnny.Decimal system: system.ncl, extensions/ and a shell with jd";
+        welcomeText = ''
+          Your system is in system.ncl. Set its root and JDex to your folders,
+          then: git add -A, nix develop, nu, use jd.nu, jd check.
+        '';
+      };
 
       packages = forEachSupportedSystem (
         { pkgs, ... }:
@@ -44,7 +66,7 @@
         }
       );
 
-      # `nix run .#generate` rewrites nickel/generated/ after you change pkgs/jd/jd.nix
+      # `nix run .#generate` rewrites nickel/generated/ after you change jd-src
       apps = forEachSupportedSystem (
         { pkgs, system }:
         {
@@ -96,6 +118,49 @@
                 nu tests/test.nu
                 touch $out
               '';
+
+          # The template's system, through the contracts and jd.nu in the
+          # package, with the template's extensions built in
+          template =
+            let
+              jd = pkgs.jd.withExtensions ./templates/default/extensions;
+            in
+            pkgs.runCommand "jd-template-test"
+              {
+                nativeBuildInputs = [
+                  jd
+                  pkgs.nickel
+                  pkgs.nushell
+                ];
+                NICKEL_IMPORT_PATH = "${jd}/share/johnnydecimal/nickel";
+                NU_LIB_DIRS = "${jd}/share/johnnydecimal/nu";
+              }
+              ''
+                export HOME=$TMPDIR
+                cp -r --no-preserve=mode ${./templates/default} system && cd system
+                nu ${./tests/template.nu}
+                touch $out
+              '';
+
+          # tests/bad-extensions/ has one of each problem that building
+          # jd.withExtensions must refuse, and expected.txt the messages. The package is built without its
+          # check here, so that the check can be run and its messages read.
+          bad-extensions =
+            let
+              dir = ./tests/bad-extensions;
+              unchecked = (pkgs.jd.withExtensions dir).overrideAttrs { doInstallCheck = false; };
+            in
+            pkgs.runCommand "jd-bad-extensions-test" { } ''
+              if bash ${./pkgs/jd/check-extensions.sh} ${unchecked} ${dir} 2> err; then
+                echo "check-extensions.sh accepted tests/bad-extensions" >&2
+                exit 1
+              fi
+              cat err
+              while IFS= read -r line; do
+                grep -qF -- "$line" err || { echo "expected: $line" >&2; exit 1; }
+              done < ${dir}/expected.txt
+              touch $out
+            '';
         }
       );
 
@@ -107,7 +172,7 @@
               self.packages.${system}.default # jd: find, create and move IDs
               pkgs.jdd # Johnny Decimal daemon: files new documents into the right folder by name
               pkgs.nickel # evaluates system.ncl
-              pkgs.nushell # nu/jd.nu: `use nu/jd.nu` in nu
+              pkgs.nushell # `use jd.nu` in nu
               self.formatter.${system}
             ];
 
@@ -118,9 +183,13 @@
             };
 
             # Everything is relative to the repository's top folder, so the
-            # shell is the same from any folder inside it
+            # shell is the same from any folder inside it. Nickel and nu find
+            # the contracts and jd.nu in the repository, so changes to them
+            # take effect at once (the package has its own copies).
             shellHook = ''
               _jd_top=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+              export NICKEL_IMPORT_PATH="$_jd_top/nickel''${NICKEL_IMPORT_PATH:+:$NICKEL_IMPORT_PATH}"
+              export NU_LIB_DIRS="$_jd_top/nu''${NU_LIB_DIRS:+:$NU_LIB_DIRS}"
               export JD_SYSTEM="''${JD_SYSTEM:-$_jd_top/example/system.ncl}"
               export JD_CONFIG="''${JD_CONFIG:-$_jd_top/example/.jd/config.json}"
               export JDD_ROOT="''${JDD_ROOT:-$_jd_top/example}"

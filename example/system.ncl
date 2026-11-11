@@ -1,5 +1,5 @@
 # An example Johnny.Decimal system. The development shell points JD_SYSTEM
-# here, so in nu, after `use nu/jd.nu`:
+# here, so in nu, after `use jd.nu`:
 #
 #   jd project       evaluate this file (Nickel checks it first)
 #   jd write-config  write the config.json that jd reads
@@ -8,8 +8,9 @@
 #
 # Relative paths are relative to this file, so the system's folders and its
 # JDex are created in example/. Its extensions are in example/extensions/.
-# The contracts are in nickel/johnny-decimal.ncl.
-let jd = import "../nickel/johnny-decimal.ncl" in
+# The contracts are in nickel/johnny-decimal.ncl: jd.nu, and the shell's
+# NICKEL_IMPORT_PATH, tell Nickel where to find them.
+let jd = import "johnny-decimal.ncl" in
 jd.project {
   systems = [
     {
