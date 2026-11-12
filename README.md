@@ -57,6 +57,7 @@ notes, plus `app = "obsidian"` (and `vault`) for an Obsidian vault, or
 | `tests/` | `test.nu` and `template.nu`; `reject/`, declarations the contracts must reject; `bad-extensions/`, extensions the build must reject |
 | `templates/default/` | the template for your own system's repository |
 | `organist/` | the same shell defined with Organist |
+| `typst-widget/` | a Python package that shows Typst documents in marimo notebooks, with example notebooks; see its own README |
 
 ## The layers
 
