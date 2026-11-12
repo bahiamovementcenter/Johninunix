@@ -7,5 +7,6 @@ nickel.lock.ncl
 
 # typst-widget
 __pycache__/
+__marimo__/
 *.egg-info/
 dist/
