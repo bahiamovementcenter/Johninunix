@@ -64,11 +64,18 @@ def org-lines [file: string] {
 }
 
 # Add heading `path` (titles joined by '/') at the end of its parent's
-# subtree, as jd's Org store adds a note
+# subtree, as jd's Org store adds a note. An ID's heading (level 3) gets a
+# CUSTOM_ID drawer with its number, as `jd new id` writes, so `[[#11.11]]`
+# reaches it.
 def org-insert [lines: list<string>, path: string] {
   let parts = $path | split row "/"
   let level = $parts | length
-  let heading = $"('' | fill --character '*' --width $level) ($parts | last)"
+  let title = $parts | last
+  let heading = [$"('' | fill --character '*' --width $level) ($title)"] | append (
+    if $level == 3 {
+      [":PROPERTIES:" $":CUSTOM_ID: ($title | split row ' ' | first)" ":END:"]
+    } else { [] }
+  )
   let at = if $level == 1 {
     $lines | length
   } else {
@@ -81,7 +88,7 @@ def org-insert [lines: list<string>, path: string] {
     let start = $found.0.line
     $outline | where { |r| $r.line > $start and $r.level < $level } | get line | append ($lines | length) | first
   }
-  if $at == ($lines | length) { $lines | append $heading } else { $lines | insert $at $heading }
+  $lines | take $at | append $heading | append ($lines | skip $at)
 }
 
 # Does a planned entry exist? A folder or note on disk, or a heading in

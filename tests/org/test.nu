@@ -16,7 +16,13 @@ def main [] {
     "* 10-19 Life admin"
     "** 11 Me"
     "*** 11.11 Passport"
+    ":PROPERTIES:"
+    ":CUSTOM_ID: 11.11"
+    ":END:"
     "*** 11.12 Bank"
+    ":PROPERTIES:"
+    ":CUSTOM_ID: 11.12"
+    ":END:"
     "** 12 House"
     "* 20-29 Work"
     "** 21 Clients"
@@ -25,7 +31,8 @@ def main [] {
   let problems = jd check | where status != "ok"
   assert equal $problems [] $"jd check found problems:\n($problems | table)"
 
-  # A heading added by hand is kept, and one that's missing is reported
+  # A heading added by hand is kept as it is, without a drawer, and one
+  # that's missing is reported
   "* 10-19 Life admin\n** 11 Me\n*** 11.11 Passport\n*** 11.13 Mine\n* 20-29 Work\n** 21 Clients\n" | save --force jdex.org
   let missing = jd check | where status == "missing" | get path
   assert equal ($missing | each { |t| $t | split row "::" | last }) [
@@ -39,6 +46,9 @@ def main [] {
     "*** 11.11 Passport"
     "*** 11.13 Mine"
     "*** 11.12 Bank"
+    ":PROPERTIES:"
+    ":CUSTOM_ID: 11.12"
+    ":END:"
     "** 12 House"
     "* 20-29 Work"
     "** 21 Clients"
