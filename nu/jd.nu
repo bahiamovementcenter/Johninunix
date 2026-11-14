@@ -324,14 +324,19 @@ def starter [sys: string, title: string, jdex: string] {
 }
 
 # Start a system in a folder: write a starter system.ncl, write jd's config
-# from it, and scaffold it. It sets $env.JD_SYSTEM to the new system.ncl, so
-# the other commands use it. It won't replace a system.ncl without --force.
+# from it into the folder's .jd/config.json, and scaffold it. It sets
+# $env.JD_SYSTEM and $env.JD_CONFIG to the new files, so jd and the other
+# commands use this system. It won't replace a system.ncl without --force.
+#
+# The config goes in the folder, not jd's default one in ~/.config, because
+# jd keeps one config for every system: writing there would fail, or with
+# --force overwrite, the config of whatever system the machine already has.
 export def --env init [
   dir?: path # default: the current folder
   --sys: string = "P76" # a letter and two digits
   --title: string = "Personal"
   --jdex: string = "folder" # folder, obsidian, org (one Org file) or bear
-  --force # replace an existing system.ncl
+  --force # replace an existing system.ncl and its .jd/config.json
 ] {
   let dir = $dir | default $env.PWD | path expand
   let file = $dir | path join "system.ncl"
@@ -341,9 +346,10 @@ export def --env init [
   mkdir $dir
   starter $sys $title $jdex | save --force $file
   $env.JD_SYSTEM = $file
-  let config = write-config --file $file
+  $env.JD_CONFIG = $dir | path join ".jd" "config.json"
+  let config = write-config --file $file --force=$force
   let made = scaffold --file $file
-  print --stderr $"jd: wrote ($file) and ($config), and created ($made | length) entries. JD_SYSTEM is set to it"
+  print --stderr $"jd: wrote ($file) and ($config), and created ($made | length) entries. JD_SYSTEM and JD_CONFIG point at them for this shell"
   $made
 }
 

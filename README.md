@@ -40,14 +40,18 @@ creates). Point `root` and `jdex.path` at your real folders, or set
 `JD_SYSTEM` to your own `system.ncl`, before you scaffold for real.
 
 To start a system from nothing, `jd init` writes a starter `system.ncl`
-into a folder, writes jd's config from it, scaffolds it, and points
-`JD_SYSTEM` at it:
+into a folder, writes jd's config from it to `.jd/config.json` in the same
+folder, scaffolds it, and points `JD_SYSTEM` and `JD_CONFIG` at the two
+files for this shell. It never touches the config in `~/.config` or the
+example's, so a second system doesn't clash with the first:
 
 ```nu
-$env.JD_CONFIG = "/tmp/jd-try/.jd/config.json"   # keep a trial away from your real config
-jd init /tmp/jd-try --jdex org                   # or folder (default), obsidian, bear
+jd init /tmp/jd-try --jdex org   # or folder (default), obsidian, bear
 jd new id 11 Car
 ```
+
+In a new shell, set both variables again (or export them from your shell's
+config) to keep using that system.
 
 In a `system.ncl`, a path that starts with `~` is in your home folder, and
 any other relative path is relative to the file. `jdex` follows jd's config
@@ -113,7 +117,7 @@ Each layer works without the ones after it.
    | Command | What it does |
    | --- | --- |
    | `jd 11.11` | run jd; a target that is a folder changes into it |
-   | `jd init [dir]` | start a system: a starter `system.ncl` (`--sys`, `--title`, `--jdex folder\|obsidian\|org\|bear`), jd's config, then scaffold |
+   | `jd init [dir]` | start a system: a starter `system.ncl` (`--sys`, `--title`, `--jdex folder\|obsidian\|org\|bear`), jd's config in `<dir>/.jd/config.json`, then scaffold; sets `JD_SYSTEM` and `JD_CONFIG` |
    | `jd ids [10-19\|11]` | the IDs on disk, as a table |
    | `jd project` | the system, evaluated and checked |
    | `jd write-config` | write jd's `config.json` (won't replace a different one without `--force`) |

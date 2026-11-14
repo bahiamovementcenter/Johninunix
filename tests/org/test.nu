@@ -53,12 +53,19 @@ def main [] {
 
 # `jd init` starts a system from nothing, in each JDex kind it writes to disk
 def "main init" [] {
+  # A machine that already has a system: jd's own config, and JD_CONFIG
+  # pointing at it, as the development shell does. init must leave it alone.
+  let existing = $env.PWD | path join "existing" "config.json"
+  mkdir ($existing | path dirname)
+  '{"version": 2, "systems": []}' | save $existing
   for kind in [org folder] {
+    $env.JD_CONFIG = $existing
     let dir = $env.PWD | path join $"init-($kind)"
-    $env.JD_CONFIG = $dir | path join ".jd" "config.json"
     jd init $dir --jdex $kind --sys "E76" --title "Experiments" | ignore
     assert equal $env.JD_SYSTEM ($dir | path join "system.ncl")
+    assert equal $env.JD_CONFIG ($dir | path join ".jd" "config.json")
     assert equal (open $env.JD_CONFIG | get systems.0.sys) "E76"
+    assert equal (open --raw $existing) '{"version": 2, "systems": []}'
     assert ($dir | path join "10-19 Life admin" "11 Me" "11.11 Passport" | path exists)
     if $kind == "org" {
       # The standard zeros are on by default, so 11.00 to 11.09 come first
@@ -75,6 +82,9 @@ def "main init" [] {
     assert equal (jd check | where status != "ok") []
     let again = try { jd init $dir --jdex $kind; "replaced" } catch { "refused" }
     assert equal $again "refused"
+    # --force replaces system.ncl and the folder's config, here with a new sys
+    jd init $dir --jdex $kind --sys "E77" --force | ignore
+    assert equal (open $env.JD_CONFIG | get systems.0.sys) "E77"
   }
   print "ok"
 }
