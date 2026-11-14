@@ -3,6 +3,7 @@
 # repository's top folder. The jd package installs it in share/johnnydecimal/nu.
 #
 #   jd 11.11            run jd; a target that is a folder changes into it
+#   jd init [dir]       start a system: system.ncl, jd's config, then scaffold
 #   jd ids [10-19|11]   the IDs on disk, as a table
 #   jd project          system.ncl, evaluated and checked by Nickel
 #   jd write-config     write jd's config.json from system.ncl
@@ -20,6 +21,8 @@ const nickel_lib = path self | path dirname | path join ".." "nickel" | path exp
 export def --env --wrapped main [...args: string] {
   let r = with-env { JD_HOOK: "1" } { ^jd ...$args | complete }
   if $r.exit_code == 3 {
+    # What jd said on the way, like the lines `jd new` prints, then the folder
+    if $r.stderr != "" { print --stderr --no-newline $r.stderr }
     cd ($r.stdout | str trim)
     return
   }
@@ -30,9 +33,65 @@ export def --env --wrapped main [...args: string] {
   }
 }
 
-# The JDex folder of a system, or null for none (or a JDex in Bear)
+# The JDex folder of a system (the file, for a JDex in Org), or null for
+# none (or a JDex in Bear)
 def jdex-path [s: record] {
   $s.jdex?.path?
+}
+
+# The headings of an Org file's lines: line (from 0), level, and path,
+# the titles from the top joined by '/', with any tags left out. It's how
+# jd's Org store (jdex/org.sh) reads the file.
+def org-outline [lines: list<string>] {
+  $lines | enumerate | reduce --fold { titles: [], rows: [] } { |it, acc|
+    let m = $it.item | parse --regex '^(?<stars>\*+) (?<title>.*)$'
+    if ($m | is-empty) {
+      $acc
+    } else {
+      let level = $m.0.stars | str length
+      let title = $m.0.title | str replace --regex '[ \t]+:[A-Za-z0-9_@#%:]+:[ \t]*$' '' | str trim --right
+      let titles = $acc.titles | take ($level - 1) | append $title
+      {
+        titles: $titles
+        rows: ($acc.rows | append { line: $it.index, level: $level, path: ($titles | str join "/") })
+      }
+    }
+  } | get rows
+}
+
+def org-lines [file: string] {
+  if ($file | path exists) { open --raw $file | lines } else { [] }
+}
+
+# Add heading `path` (titles joined by '/') at the end of its parent's
+# subtree, as jd's Org store adds a note
+def org-insert [lines: list<string>, path: string] {
+  let parts = $path | split row "/"
+  let level = $parts | length
+  let heading = $"('' | fill --character '*' --width $level) ($parts | last)"
+  let at = if $level == 1 {
+    $lines | length
+  } else {
+    let outline = org-outline $lines
+    let parent = $parts | drop | str join "/"
+    let found = $outline | where path == $parent
+    if ($found | is-empty) {
+      error make --unspanned { msg: $"the Org file has no heading ($parent)" }
+    }
+    let start = $found.0.line
+    $outline | where { |r| $r.line > $start and $r.level < $level } | get line | append ($lines | length) | first
+  }
+  if $at == ($lines | length) { $lines | append $heading } else { $lines | insert $at $heading }
+}
+
+# Does a planned entry exist? A folder or note on disk, or a heading in
+# the Org file
+def present [e: record] {
+  if $e.type == "heading" {
+    $e.heading in (org-outline (org-lines $e.file) | get path)
+  } else {
+    $e.target | path exists
+  }
 }
 
 # The system.ncl to read: --file, else $env.JD_SYSTEM, else ./system.ncl
@@ -64,14 +123,18 @@ def load [file?: path] {
 }
 
 # Everything the system declares: one folder in the root per entry, plus a
-# folder (areas, categories) or a note (IDs) in a JDex folder. A JDex in
-# Bear has no folder, so nothing is planned there.
+# folder (areas, categories) or a note (IDs) in a JDex folder, or a heading
+# in a JDex in Org. A JDex in Bear has no folder, so nothing is planned
+# there.
 def plan [project: record] {
   $project.scaffold | each { |e|
     let s = $project.config.systems | where sys == $e.sys | first
     let in_root = { kind: $e.kind, type: "folder", target: ($s.root | path join $e.path) }
     let jdex = jdex-path $s
-    if $jdex != null {
+    if $jdex != null and $s.jdex?.app? == "org" {
+      let in_jdex = { kind: $e.kind, type: "heading", target: $"($jdex)::($e.path)", file: $jdex, heading: $e.path }
+      [$in_root $in_jdex]
+    } else if $jdex != null {
       let in_jdex = if $e.kind == "id" {
         { kind: $e.kind, type: "note", target: ($jdex | path join $"($e.path).md") }
       } else {
@@ -143,7 +206,7 @@ def check-extensions [project: record, dir: string] {
     row "extension" ($dir | path join $n) "missing" "declared in system.ncl, no such file"
   }
 
-  let adapters = ["notes" "tasks"] | each { |kind|
+  let adapters = ["jdex" "notes" "tasks"] | each { |kind|
     let kind_dir = $dir | path join "adapters" $kind
     let spec = $project.adapters | get $kind
     let files = if ($kind_dir | path exists) { ls $kind_dir | where name =~ '\.sh$' | get name } else { [] }
@@ -222,17 +285,88 @@ export def write-config [
   $target
 }
 
+# A starter system.ncl. Its root is the folder it's in, and so is its JDex.
+def starter [sys: string, title: string, jdex: string] {
+  let jdex_record = match $jdex {
+    "folder" => '{ path = "jdex" }'
+    "obsidian" => '{ app = "obsidian", path = "jdex" }'
+    "org" => '{ app = "org", path = "jdex.org" }'
+    "bear" => '{ app = "bear" }'
+    _ => (error make --unspanned { msg: $"--jdex is folder, obsidian, org or bear, not ($jdex)" })
+  }
+  [
+    $"# ($sys) ($title). Written by `jd init`; it's yours to edit. Declare your"
+    "# areas, categories and IDs here, then `jd scaffold` creates what's missing."
+    "# Relative paths are relative to this file."
+    'let jd = import "johnny-decimal.ncl" in'
+    "jd.project {"
+    "  systems = ["
+    "    {"
+    $"      sys = \"($sys)\","
+    $"      title = \"($title)\","
+    '      root = ".",'
+    $"      jdex = ($jdex_record),"
+    "      default = true,"
+    "      areas = {"
+    '        "10-19" = {'
+    '          name = "Life admin",'
+    "          categories = {"
+    '            "11" = { name = "Me", ids = { "11.11" = "Passport" } },'
+    '            "12" = { name = "House" },'
+    "          },"
+    "        },"
+    "      },"
+    "    },"
+    "  ],"
+    "}"
+    ""
+  ] | str join "\n"
+}
+
+# Start a system in a folder: write a starter system.ncl, write jd's config
+# from it into the folder's .jd/config.json, and scaffold it. It sets
+# $env.JD_SYSTEM and $env.JD_CONFIG to the new files, so jd and the other
+# commands use this system. It won't replace a system.ncl without --force.
+#
+# The config goes in the folder, not jd's default one in ~/.config, because
+# jd keeps one config for every system: writing there would fail, or with
+# --force overwrite, the config of whatever system the machine already has.
+export def --env init [
+  dir?: path # default: the current folder
+  --sys: string = "P76" # a letter and two digits
+  --title: string = "Personal"
+  --jdex: string = "folder" # folder, obsidian, org (one Org file) or bear
+  --force # replace an existing system.ncl and its .jd/config.json
+] {
+  let dir = $dir | default $env.PWD | path expand
+  let file = $dir | path join "system.ncl"
+  if ($file | path exists) and not $force {
+    error make --unspanned { msg: $"($file) exists. Pass --force to replace it" }
+  }
+  mkdir $dir
+  starter $sys $title $jdex | save --force $file
+  $env.JD_SYSTEM = $file
+  $env.JD_CONFIG = $dir | path join ".jd" "config.json"
+  let config = write-config --file $file --force=$force
+  let made = scaffold --file $file
+  print --stderr $"jd: wrote ($file) and ($config), and created ($made | length) entries. JD_SYSTEM and JD_CONFIG point at them for this shell"
+  $made
+}
+
 # Create the folders and JDex notes that system.ncl declares and the disk
 # lacks. It never deletes or renames anything.
 export def scaffold [
   --file (-f): path # default: $env.JD_SYSTEM, else ./system.ncl
   --dry-run # list what it would create
 ] {
-  let todo = plan (load $file) | where { |e| not ($e.target | path exists) }
+  let todo = plan (load $file) | where { |e| not (present $e) }
   if not $dry_run {
     for e in $todo {
       if $e.type == "folder" {
         mkdir $e.target
+      } else if $e.type == "heading" {
+        mkdir ($e.file | path dirname)
+        org-insert (org-lines $e.file) $e.heading | str join "\n" | $in + "\n" | save --force $e.file
       } else {
         mkdir ($e.target | path dirname)
         touch $e.target
@@ -252,7 +386,7 @@ export def check [
   let extensions = $extensions | default (system-file $file | path dirname | path join "extensions")
   let declared = plan $project
   let structure = $declared | each { |e|
-    row $e.kind $e.target (if ($e.target | path exists) { "ok" } else { "missing" })
+    row $e.kind $e.target (if (present $e) { "ok" } else { "missing" })
   }
   let undeclared = $project.config.systems | each { |s|
     jd-folders $s.root | where { |d| $d.path not-in $declared.target } | each { |d|

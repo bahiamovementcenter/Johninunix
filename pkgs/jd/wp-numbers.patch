@@ -1,0 +1,38 @@
+diff --git a/lib/new.sh b/lib/new.sh
+index e9337c3..674d323 100644
+--- a/lib/new.sh
++++ b/lib/new.sh
+@@ -914,8 +914,15 @@ _jd_new_id() {
+ # directly in the area, and the entries directly in its archive, W0009.
+ # Nothing deeper counts: a folder deep inside a work package can contain
+ # names from some other system.
++#
++# It never returns W0003 or W0009. Those are the work package area's own
++# folders, the templates and the archive, which jd creates with the first
++# work package, so a work package with either number would collide with
++# them. workPackages.firstNumber in the config, 1 to 9999, sets the
++# lowest number: 10 leaves W0000 to W0009 to the area, as .00 to .09 are
++# left to a category.
+ _jd_new_next_number() {
+-  local max n a
++  local max n a first
+   max=$(
+     {
+       if [ "$_JD_JDEX_KIND" = bear ]; then
+@@ -933,6 +940,16 @@ _jd_new_next_number() {
+   n=$(printf '%s' "$max" | sed 's/^0*//')
+   [ -n "$n" ] || n=0
+   n=$((n + 1))
++  first=$(_jd_new_cfg '.workPackages.firstNumber')
++  case $first in
++    '') first=1 ;;
++    *[!0-9]* | 0 | 0[0-9]* | ?????*)
++      _jd_new_fail bad_config '' "workPackages.firstNumber is '$first' - it must be a number from 1 to 9999"
++      return 1
++      ;;
++  esac
++  [ "$n" -ge "$first" ] || n=$first
++  case $n in 3 | 9) n=$((n + 1)) ;; esac
+   if [ "$n" -gt 9999 ]; then
+     _jd_new_fail numbers_exhausted '' "the last work package number is W9999"
+     return 1

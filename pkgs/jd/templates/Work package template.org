@@ -1,0 +1,6 @@
+- Parent :: {{PARENT_LINK}}
+- JDex :: [[{{NOTES_URL}}][JDex]]
+- Tasks :: [[{{TASKS_URL}}][Tasks]]
+
+* Scope
+- {{?SCOPE Define this work package's scope.}}

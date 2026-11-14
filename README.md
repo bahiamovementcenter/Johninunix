@@ -39,22 +39,63 @@ never writes into the tool's own files (`example/.gitignore` ignores what it
 creates). Point `root` and `jdex.path` at your real folders, or set
 `JD_SYSTEM` to your own `system.ncl`, before you scaffold for real.
 
+To start a system from nothing, `jd init` writes a starter `system.ncl`
+into a folder, writes jd's config from it to `.jd/config.json` in the same
+folder, scaffolds it, and points `JD_SYSTEM` and `JD_CONFIG` at the two
+files for this shell. It never touches the config in `~/.config` or the
+example's, so a second system doesn't clash with the first:
+
+```nu
+jd init /tmp/jd-try --jdex org   # or folder (default), obsidian, bear
+jd new id 11 Car
+```
+
+In a new shell, set both variables again (or export them from your shell's
+config) to keep using that system.
+
 In a `system.ncl`, a path that starts with `~` is in your home folder, and
 any other relative path is relative to the file. `jdex` follows jd's config
 version 2: `{ path = "..." }` for a folder of
-notes, plus `app = "obsidian"` (and `vault`) for an Obsidian vault, or
-`{ app = "bear" }` for a JDex in Bear.
+notes, plus `app = "obsidian"` (and `vault`) for an Obsidian vault,
+`{ app = "bear" }` for a JDex in Bear, or
+`{ app = "org", path = "jdex.org" }` for a JDex in one Org file.
+
+### A JDex in Org
+
+This package's jd has a patch, `pkgs/jd/jdex-store.patch`, that makes the
+place the JDex lives pluggable: a *JDex store* is one file,
+`lib/adapters/jdex/<app>.sh`, and Bear is now one of them (see
+`docs/adr/0001-jdex-store.md`). `pkgs/jd/adapters/jdex/org.sh` is a
+second: the JDex is the outline of one Org file.
+
+```org
+* 10-19 Life admin
+** 11 Me
+*** 11.11 Passport
+* W0000-9999 Work packages
+** W0001~11.11 Renew it
+:PROPERTIES:
+:CUSTOM_ID: W0001
+:END:
+```
+
+`jdex 11.11` opens the heading with `$JD_ORG_EDITOR +LINE FILE` (or
+`emacsclient -n`); `jd new id` and `jd new wp` add a heading at the end of
+its category or the work package area, from `ID template.org` and
+`Work package template.org`; and `jd scaffold` in `jd.nu` writes the
+declared areas, categories and IDs into the file as headings.
 
 ## Layout
 
 | Folder | What's in it |
 | --- | --- |
-| `pkgs/jd/` | `jd.nix`, the package; `jd-ext.sh`, the extension loader it installs; `check-extensions.sh`, its build-time check |
+| `pkgs/jd/` | `jd.nix`, the package; `jdex-store.patch`, its change to jd; `adapters/` and `templates/`, the Org store it adds; `jd-ext.sh`, the extension loader it installs; `check-extensions.sh`, its build-time check |
+| `docs/adr/` | the design decisions |
 | `nickel/` | `johnny-decimal.ncl`, the contracts, and `generated/`, facts read from the pinned jd |
 | `nu/` | `jd.nu`, the Nushell module |
 | `example/` | an example `system.ncl` and its `extensions/` |
 | `scripts/` | `generate.nu`, which writes `nickel/generated/` |
-| `tests/` | `test.nu` and `template.nu`; `reject/`, declarations the contracts must reject; `bad-extensions/`, extensions the build must reject |
+| `tests/` | `test.nu` and `template.nu`; `reject/`, declarations the contracts must reject; `bad-extensions/`, extensions the build must reject; `org/`, the Org store end to end |
 | `templates/default/` | the template for your own system's repository |
 | `organist/` | the same shell defined with Organist |
 
@@ -76,6 +117,7 @@ Each layer works without the ones after it.
    | Command | What it does |
    | --- | --- |
    | `jd 11.11` | run jd; a target that is a folder changes into it |
+   | `jd init [dir]` | start a system: a starter `system.ncl` (`--sys`, `--title`, `--jdex folder\|obsidian\|org\|bear`), jd's config in `<dir>/.jd/config.json`, then scaffold; sets `JD_SYSTEM` and `JD_CONFIG` |
    | `jd ids [10-19\|11]` | the IDs on disk, as a table |
    | `jd project` | the system, evaluated and checked |
    | `jd write-config` | write jd's `config.json` (won't replace a different one without `--force`) |
@@ -97,7 +139,8 @@ Each layer works without the ones after it.
    `pkgs/jd/jd-ext.sh`). The shell's jd has the example's two:
    `example/extensions/stats.sh` adds `jd stats`, and `autocommit.sh`
    commits the JDex after `jd new` when `JD_AUTOCOMMIT=1`. Work-package
-   adapters go in `extensions/adapters/{tasks,notes}/`. Declare each
+   adapters go in `extensions/adapters/{tasks,notes}/`, and JDex stores in
+   `extensions/adapters/jdex/`. Declare each
    extension in the `system.ncl` next to it.
 
    `jd.withExtensions` checks the extensions when it builds jd, and the
@@ -128,6 +171,21 @@ nix run .#generate                             # rewrite nickel/generated/ from 
 nix flake check                                # everything below, against it
 ```
 
+The package carries two patches to jd. `jdex-store.patch` is the JDex
+store above. `wp-numbers.patch` fixes a jd 5.0.1 bug: in a new system the
+third work package fails, because the first one creates the folder
+`W0003 Templates for area W0000-9999` and the third is numbered W0003.
+With the patch, jd steps over W0003 and W0009, the templates and the
+archive. `system.ncl` also sets `workPackages.firstNumber` to 11 for
+every system, so your first work package is W0011, as the Johnny.Decimal
+docs advise, and W0000 to W0010 stay with the area. Set
+`work_packages.first_number` to change it. jd's own default, used by a
+config that doesn't come from `system.ncl`, is still W0001.
+
+If a patch no longer applies, the build stops there. Rebase it on the new
+tag: apply it in a checkout of the tag, fix what's rejected, and write it
+out again with `git diff`.
+
 ## Checks
 
 `nix flake check` checks that `nickel/generated/` is current and runs:
@@ -139,5 +197,11 @@ nix flake check                                # everything below, against it
   `jd.nu` from the package rather than from the repository.
 - the build-time extension check on `tests/bad-extensions/`, which must
   report each message in its `expected.txt`.
+- jd's own test suite (`test/run.sh`, in bash and zsh), on the patched
+  jd, so the patch can't change what jd does with a Markdown or Bear JDex.
+- `tests/org/`: the Org store through jd itself (`test.sh`); with real
+  Emacs from nixpkgs, which parses what jd wrote, follows its links, passes
+  `org-lint`, and is opened by `jdex` through `emacsclient` (`emacs.sh`);
+  and `jd scaffold` and `jd check` with an Org JDex (`test.nu`).
 
 `nix fmt` formats the Nix files.

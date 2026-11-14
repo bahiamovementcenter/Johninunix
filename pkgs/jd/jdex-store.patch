@@ -1,0 +1,581 @@
+diff --git a/lib/adapters/README.md b/lib/adapters/README.md
+index 2cd9750..9716bef 100644
+--- a/lib/adapters/README.md
++++ b/lib/adapters/README.md
+@@ -8,7 +8,7 @@ An adapter is one file that contains all the code for one app.
+ `lib/new.sh` never names an app. It calls the functions below, and each
+ adapter implements them for its own app.
+ 
+-There are two kinds.
++There are two kinds for work packages.
+ 
+ - `tasks/` – the task app, which stores the project.
+ - `notes/` – the note app that contains the JDex, which the link in the
+@@ -16,6 +16,9 @@ There are two kinds.
+ 
+ Each kind has a `none.sh`, which does nothing and is the default.
+ 
++A third kind, `jdex/`, is not only for work packages. Refer to
++[JDex stores](#jdex-stores).
++
+ ## Choosing one
+ 
+ The system's entry in the config file names each app, and contains the
+@@ -113,3 +116,45 @@ Copy `none.sh` and fill in the functions. Two rules.
+   `jd new` reads stdout.
+ - Say what is wrong on stderr, with `_jd_nav_err`, and return 1. The
+   user must not have to read an error from the app itself.
++
++## JDex stores
++
++jd reads and writes a JDex that is a folder of Markdown notes itself. A
++JDex in any other app needs a store: `jdex/<app>.sh`. jd loads it when
++the system's `jdex.app` names it, and uses it for every command that
++reads or writes the JDex: `jdex 11.11`, `jd new id`, `jd new wp`, and an
++ID that jd creates from the JDex. `jdex/bear.sh` is the store for Bear.
++
++An app with no file in `jdex/`, such as `obsidian`, is a folder of
++notes. `jdex/none.sh` is never loaded. It lists the functions, and is the
++file to copy.
++
++A store has its own words for two things.
++
++- A **container** holds notes: a category, or the work package area. In
++  Bear it is a tag, such as `10-19 Life admin/11 Me`.
++- A **locator** is one match, which jd hands back to the store to open.
++  In Bear it is `bear:note:<id>` or `bear:tag:<tag>`.
++
++| Function | What it does |
++| --- | --- |
++| `jd_jdex_load` | Read the JDex, once in each shell. Print why not, and return 1, if it cannot be read |
++| `jd_jdex_find` | The same arguments as `_jd_jdex_find` in `lib/jdex.sh`: `area 10-19`, `category 11`, `id 11.11`, `wp W0012`, `search word...`, `search-area 10-19 word...`, `search-category 11 word...`. Print one line for each match: the locator, the display (a path from the top of the JDex), and the name with no extension, separated by a tab |
++| `jd_jdex_open` | Open one match. `$1` the locator, `$2` the display, for the message |
++| `jd_jdex_open_app` | Open the JDex itself: `jdex` with no target |
++| `jd_jdex_titles` | The note titles directly in container `$1`, one per line. With `$2` `wp`, the work package notes in work package area `$1`. jd reads the numbers from them |
++| `jd_jdex_category` | The container for category `$1`. One line for each match |
++| `jd_jdex_wp_area` | The work package area's container. With none yet, the one that writing the first work package note creates |
++| `jd_jdex_where` | Describe note `$1` in container `$2`, for the line `jd new` prints |
++| `jd_jdex_write` | Create note `$1` in container `$2`. Its text is on stdin, and may be empty. Print its link on stdout. Print nothing if it failed |
++
++A store may set these when it is loaded.
++
++| Variable | Value |
++| --- | --- |
++| `_JD_JDEX_LABEL` | its name in messages, as in `the JDex in Bear` |
++| `_JD_JDEX_UNIT` | what a container is called in messages: `tag` |
++| `_JD_JDEX_EXT` | the extension of the templates jd reads for it: `ID template.<ext>` in a `.03`, `Work package template.<ext>` in `W0003`. Default `md` |
++
++It can read `$_JD_JDEX_PATH`, `$_JD_JDEX_VAULT` and `$_JD_JDEX_SYS`, from
++the config, and the `_JD_NEW_*` variables while `jd new` runs.
+diff --git a/lib/adapters/jdex/bear.sh b/lib/adapters/jdex/bear.sh
+new file mode 100644
+index 0000000..9137bd5
+--- /dev/null
++++ b/lib/adapters/jdex/bear.sh
+@@ -0,0 +1,54 @@
++# SPDX-License-Identifier: MIT
++# jdex/bear.sh - a JDex in Bear
++#
++# lib/bear.sh reads and writes Bear, through bearcli. This file is the
++# store: the functions that jd calls, each one a call to lib/bear.sh.
++#
++# A container is a tag, with no '#': '10-19 Life admin/11 Me'. A
++# locator is bear:note:<id> or bear:tag:<tag>.
++
++_JD_JDEX_LABEL=Bear
++_JD_JDEX_UNIT=tag
++
++jd_jdex_load() { _jd_bear_load; }
++
++jd_jdex_find() { _jd_bear_find "$@"; }
++
++jd_jdex_open() { _jd_bear_open "$@"; }
++
++jd_jdex_open_app() { _jd_bear_open_app; }
++
++jd_jdex_titles() { _jd_bear_titles "$@"; }
++
++jd_jdex_category() {
++  _jd_bear_find category "$1" | cut -f1 | sed 's/^bear:tag://'
++}
++
++# The work package area tag. With none yet, the tag that the first work
++# package note creates.
++jd_jdex_wp_area() {
++  local jw
++  jw=$(_jd_bear_wp_areas) || return 1
++  [ -n "$jw" ] || jw="$_JD_BEAR_BASE$_JD_NEW_WP_AREA"
++  printf '%s\n' "$jw"
++}
++
++jd_jdex_where() { printf 'Bear: %s, #%s#' "$1" "$2"; }
++
++# The note's text is on stdin. Bear's note starts with the title and
++# the tag, then a blank line and the text.
++jd_jdex_write() {
++  local body id
++  body=$(
++    cat
++    printf x
++  )
++  body=${body%x}
++  id=$(
++    if [ -n "$body" ]; then
++      printf '\n%s' "$body"
++    fi | _jd_bear_create "$1" "$2"
++  )
++  [ -n "$id" ] || return 1
++  printf 'bear://x-callback-url/open-note?id=%s' "$id"
++}
+diff --git a/lib/adapters/jdex/none.sh b/lib/adapters/jdex/none.sh
+new file mode 100644
+index 0000000..598194a
+--- /dev/null
++++ b/lib/adapters/jdex/none.sh
+@@ -0,0 +1,32 @@
++# SPDX-License-Identifier: MIT
++# jdex/none.sh - the functions that a JDex store defines
++#
++# A store reads and writes a JDex that is not a folder of Markdown
++# notes. '"jdex": { "app": "bear" }' loads jdex/bear.sh. An app with no
++# file here, such as obsidian, is a folder of notes, and jd reads it
++# itself. 'none' is never loaded as a store: this file is the list of
++# what a store defines, and what to copy to write one. Refer to
++# lib/adapters/README.md.
++#
++# A store may set these when jd loads it:
++#
++#   _JD_JDEX_LABEL   its name in messages: 'the JDex in Bear'
++#   _JD_JDEX_UNIT    what a container is called: 'tag'
++#   _JD_JDEX_EXT     the extension of its templates, 'ID template.<ext>'
++#                    and 'Work package template.<ext>'. Default md
++
++jd_jdex_load() {
++  _jd_nav_err "this system has no JDex"
++  return 1
++}
++jd_jdex_find() { return 1; }
++jd_jdex_open() { return 1; }
++jd_jdex_open_app() { return 1; }
++jd_jdex_titles() { return 0; }
++jd_jdex_category() { return 0; }
++jd_jdex_wp_area() { return 0; }
++jd_jdex_where() { printf '%s' "$1"; }
++jd_jdex_write() {
++  cat >/dev/null
++  printf ''
++}
+diff --git a/lib/jdex.sh b/lib/jdex.sh
+index 55c3ba0..5114523 100644
+--- a/lib/jdex.sh
++++ b/lib/jdex.sh
+@@ -10,17 +10,19 @@
+ #                folders, which contain the notes: 11-19/11/11.11.md
+ #   flat         a folder with no area folders. The notes are in its
+ #                root: 11.11.md
+-#   bear         the notes are in Bear. An area is a tag, a category is
+-#                a tag nested under it, and a note's title starts with
+-#                its ID. lib/bear.sh reads it
++#   store        the JDex app has a store adapter,
++#                lib/adapters/jdex/<app>.sh, which reads and writes it.
++#                $_JD_JDEX_STORE is the app. Bear is one: an area is a
++#                tag, a category is a tag nested under it, and a note's
++#                title starts with its ID
+ #   none         the system has no JDex
+ #   unsupported  the JDex is in an app that jd cannot read
+ #
+ # Every lookup is one function, _jd_jdex_find, which prints one line per
+ # match, three fields separated by a tab:
+ #
+-#   locator   the path, for a folder, or bear:note:<id> or
+-#             bear:tag:<tag>, for Bear
++#   locator   the path, for a folder, or whatever the store uses, such
++#             as bear:note:<id> or bear:tag:<tag>, for Bear
+ #   display   the match as a path from the top of the JDex, for a list
+ #             of matches
+ #   name      the name of the entry: the file name, or the note title
+@@ -29,7 +31,8 @@
+ 
+ # Read the JDex of system $1, the sys id or '#N', from the config. Sets
+ # $_JD_JDEX_PATH, $_JD_JDEX_APP, $_JD_JDEX_VAULT, $_JD_JDEX_SYS and
+-# $_JD_JDEX_KIND.
++# $_JD_JDEX_KIND. For a store, it loads the store's adapter, which sets
++# $_JD_JDEX_STORE and the store's own variables.
+ _jd_jdex_load() {
+   local sys=$1 cfg sel row us
+   _JD_JDEX_PATH=''
+@@ -37,6 +40,10 @@ _jd_jdex_load() {
+   _JD_JDEX_VAULT=''
+   _JD_JDEX_SYS=''
+   _JD_JDEX_KIND=none
++  _JD_JDEX_STORE=''
++  _JD_JDEX_LABEL=''
++  _JD_JDEX_UNIT=''
++  _JD_JDEX_EXT=''
+   cfg=$(_jd_paths_config)
+   case $sys in
+     '#'*) sel=".systems[${sys#'#'}]" ;;
+@@ -52,8 +59,8 @@ _jd_jdex_load() {
+   IFS=$us read -r _JD_JDEX_PATH _JD_JDEX_APP _JD_JDEX_VAULT _JD_JDEX_SYS <<EOF
+ $row
+ EOF
+-  if [ "$_JD_JDEX_APP" = bear ]; then
+-    _JD_JDEX_KIND=bear
++  if _jd_jdex_store "$_JD_JDEX_APP"; then
++    _JD_JDEX_KIND=store
+   elif [ -n "$_JD_JDEX_PATH" ]; then
+     _JD_JDEX_KIND=nested
+     if [ -d "$_JD_JDEX_PATH" ] && _jd_jdex_is_flat "$_JD_JDEX_PATH"; then
+@@ -65,6 +72,30 @@ EOF
+   return 0
+ }
+ 
++# Load the store adapter for app $1, lib/adapters/jdex/<app>.sh, if
++# there is one. Returns 1 if there is none: the JDex is a folder of
++# notes, or an app that jd cannot read. 'none' is never a store: its
++# file only lists the functions that a store defines. The name is
++# checked the same way as a work package adapter's, because it is part
++# of a path that this function sources.
++_jd_jdex_store() {
++  local f
++  case $1 in
++    '' | none | *[!a-z0-9_-]*) return 1 ;;
++  esac
++  f="$_JD_CLI_DIR/lib/adapters/jdex/$1.sh"
++  [ -f "$f" ] || return 1
++  . "$f"
++  _JD_JDEX_STORE=$1
++  [ -n "$_JD_JDEX_LABEL" ] || _JD_JDEX_LABEL=$1
++  [ -n "$_JD_JDEX_UNIT" ] || _JD_JDEX_UNIT=container
++  return 0
++}
++
++# The extension of the JDex's notes and of its templates: md, unless the
++# store sets another.
++_jd_jdex_ext() { printf '%s' "${_JD_JDEX_EXT:-md}"; }
++
+ # Is $1 an ID folder that contains its own note? This matches how the
+ # Obsidian 'Folder notes' plugin works: '21.41 Videos/21.41 Videos.md'.
+ # The note's name is exactly the folder's name.
+@@ -192,15 +223,15 @@ _jd_jdex_find() {
+   case $_JD_JDEX_KIND in
+     nested) _jd_jdex_find_nested "$@" ;;
+     flat) _jd_jdex_find_flat "$@" ;;
+-    bear) _jd_bear_find "$@" ;;
++    store) jd_jdex_find "$@" ;;
+     *) return 1 ;;
+   esac
+ }
+ 
+ # Act on the matches $2 from _jd_jdex_find. $1 the label for messages.
+ # One match: go to it. For a folder, that is the folder that contains
+-# the note. For Bear, jd opens the note or the tag in Bear. More than
+-# one: print the list. None: an error.
++# the note. For a store, the store opens it: Bear opens the note or the
++# tag in Bear. More than one: print the list. None: an error.
+ _jd_jdex_go() {
+   local label=$1 m=$2 n loc tab
+   tab=$(printf '\t')
+@@ -209,13 +240,11 @@ _jd_jdex_go() {
+     _jd_nav_err "no match for $label"
+   elif [ "$n" -eq 1 ]; then
+     loc=${m%%"$tab"*}
+-    case $loc in
+-      bear:*)
+-        m=${m#*"$tab"}
+-        _jd_bear_open "$loc" "${m%%"$tab"*}"
+-        return
+-        ;;
+-    esac
++    if [ "$_JD_JDEX_KIND" = store ]; then
++      m=${m#*"$tab"}
++      jd_jdex_open "$loc" "${m%%"$tab"*}"
++      return
++    fi
+     [ -d "$loc" ] || loc=$(dirname -- "$loc")
+     _jd_nav_arrive "$loc"
+   else
+@@ -231,8 +260,8 @@ _jd_jdex_go() {
+ # $_JD_JDEX_* are set. $@ the user's words.
+ _jd_nav_jdex() {
+   local a c id m
+-  if [ "$_JD_JDEX_KIND" = bear ]; then
+-    _jd_bear_load || return 1
++  if [ "$_JD_JDEX_KIND" = store ]; then
++    jd_jdex_load || return 1
+   fi
+   case $1 in
+     [0-9][0-9]-[0-9][0-9])
+diff --git a/lib/nav.sh b/lib/nav.sh
+index 694a39f..59844c8 100644
+--- a/lib/nav.sh
++++ b/lib/nav.sh
+@@ -265,7 +265,7 @@ _jd_nav_make_id() {
+   local root=$1 id=$3 jm name num what cm
+   case $_JD_JDEX_KIND in
+     nested | flat) [ -d "$_JD_JDEX_PATH" ] || return 1 ;;
+-    bear) ;;
++    store) ;;
+     *) return 1 ;;
+   esac
+   case $id in
+@@ -403,7 +403,7 @@ _jd_nav() {
+     case $_JD_JDEX_KIND in
+       none) _jd_nav_err "no jdex for $sys in $cfg"; return 1 ;;
+       unsupported) _jd_nav_err "jd cannot read a JDex in the app '$_JD_JDEX_APP'"; return 1 ;;
+-      bear) tree='' ;;
++      store) tree='' ;;
+       *) tree=$jdex ;;
+     esac
+   fi
+@@ -413,9 +413,9 @@ _jd_nav() {
+   fi
+ 
+   if [ $# -eq 0 ]; then
+-    if [ "$mode" = jdex ] && [ "$_JD_JDEX_KIND" = bear ]; then
+-      _jd_bear_load || return 1
+-      _jd_bear_open_app
++    if [ "$mode" = jdex ] && [ "$_JD_JDEX_KIND" = store ]; then
++      jd_jdex_load || return 1
++      jd_jdex_open_app
+       return
+     fi
+     _jd_nav_arrive "$tree"
+diff --git a/lib/new.sh b/lib/new.sh
+index e9337c3..540e0af 100644
+--- a/lib/new.sh
++++ b/lib/new.sh
+@@ -692,8 +692,8 @@ _jd_new_inner() {
+       _jd_new_fail jdex_app_unsupported '' "jd cannot write to a JDex in the app '$_JD_JDEX_APP'"
+       return 1
+       ;;
+-    bear)
+-      _jd_bear_load || { _JD_NEW_CODE=bear_failed; return 1; }
++    store)
++      jd_jdex_load || { _JD_NEW_CODE="${_JD_JDEX_STORE}_failed"; return 1; }
+       ;;
+     *)
+       [ -d "$_JD_NEW_JDEX" ] || { _jd_new_fail no_jdex "$_JD_NEW_JDEX" "folder does not exist: $_JD_NEW_JDEX"; return 1; }
+@@ -709,7 +709,7 @@ _jd_new_inner() {
+ # -------------------------------------------------------------------- id
+ 
+ # The two-digit IDs used in category $1, one per line. $2 the JDex
+-# category: a folder, or a tag in Bear.
++# category: a folder, or the store's container, such as a tag in Bear.
+ #
+ # Only the JDex counts. The JDex defines the IDs, so a folder in the
+ # filesystem with no JDex entry is not an ID.
+@@ -717,13 +717,13 @@ _jd_new_inner() {
+ # In a folder, it reads the entries directly in the category, and the
+ # entries directly in its archive, the .09 ID. Nothing deeper counts: a
+ # folder deep inside an ID can contain names from some other system. In
+-# Bear, it reads the title of every note in the category's tag, and in
+-# the tags nested below it.
++# a store, it reads the titles that the store lists for the container:
++# in Bear, every note in the category's tag, and in the tags below it.
+ _jd_new_used_ids() {
+   local a
+   {
+-    if [ "$_JD_JDEX_KIND" = bear ]; then
+-      _jd_bear_titles "$2"
++    if [ "$_JD_JDEX_KIND" = store ]; then
++      jd_jdex_titles "$2"
+     else
+       _jd_nav_find "$2" 1 a -name "$1.[0-9][0-9]*"
+       _jd_nav_find "$2" 1 d -name "$1.09" -o -name "$1.09 *" |
+@@ -735,23 +735,23 @@ _jd_new_used_ids() {
+     | sort -u
+ }
+ 
+-# Write the note to Bear. $1 the title, $2 the tag. Sets
+-# $_JD_NEW_NOTE_URL to the note's link.
+-_jd_new_write_bear() {
+-  local id
+-  id=$(
++# Write the note to the store. $1 the title, $2 the store's container.
++# The store reads the note's text on stdin. Sets $_JD_NEW_NOTE_URL to
++# the link that the store prints.
++_jd_new_write_store() {
++  local link
++  link=$(
+     if [ -n "$_JD_NEW_TEXT" ]; then
+-      printf '\n'
+       _jd_new_render
+       printf '\n'
+-    fi | _jd_bear_create "$1" "$2"
++    fi | jd_jdex_write "$1" "$2"
+   )
+-  if [ -z "$id" ]; then
+-    _jd_new_fail write_failed '' "bearcli could not create the note $1 in Bear"
++  if [ -z "$link" ]; then
++    _jd_new_fail write_failed '' "could not create the note $1 in $_JD_JDEX_LABEL"
+     return 1
+   fi
+-  _JD_NEW_NOTE_URL="bear://x-callback-url/open-note?id=$id"
+-  _jd_new_say "note    Bear: $1, #$2#"
++  _JD_NEW_NOTE_URL=$link
++  _jd_new_say "note    $(jd_jdex_where "$1" "$2")"
+   [ -n "$_JD_NEW_TOFILL_NAMES" ] && _jd_new_say "not set $_JD_NEW_TOFILL_NAMES, so the note has the brief"
+   return 0
+ }
+@@ -764,8 +764,8 @@ _jd_new_id_template() {
+   local c=$1 m
+   for m in "$c.03" "${c%?}0.03" 00.03; do
+     _jd_new_one "$(_jd_nav_find "$_JD_NEW_ROOT" 3 d -name "$m" -o -name "$m *")" "$m" || return 1
+-    if [ -n "$_JD_NEW_ONE" ] && [ -f "$_JD_NEW_ONE/$_JD_NEW_ID_TPL" ]; then
+-      _JD_NEW_TEMPLATE="$_JD_NEW_ONE/$_JD_NEW_ID_TPL"
++    if [ -n "$_JD_NEW_ONE" ] && [ -f "$_JD_NEW_ONE/${_JD_NEW_ID_TPL%.md}.$(_jd_jdex_ext)" ]; then
++      _JD_NEW_TEMPLATE="$_JD_NEW_ONE/${_JD_NEW_ID_TPL%.md}.$(_jd_jdex_ext)"
+       return 0
+     fi
+   done
+@@ -796,14 +796,13 @@ _jd_new_id() {
+ 
+   # The category, in both trees, found by the start of its name.
+   fcat=$(_jd_nav_find "$_JD_NEW_ROOT" 2 d -name "$c" -o -name "$c *")
+-  if [ "$_JD_JDEX_KIND" = bear ]; then
+-    # Bear: the category is a tag.
+-    jcat=$(_jd_jdex_find category "$c" | cut -f1)
++  if [ "$_JD_JDEX_KIND" = store ]; then
++    # A store: the category is the store's container, a tag in Bear.
++    jcat=$(jd_jdex_category "$c")
+     if [ "$(printf '%s' "$jcat" | grep -c '^')" -ne 1 ]; then
+-      _jd_new_fail no_category_jdex '' "the JDex in Bear has no one tag for category $c"
++      _jd_new_fail no_category_jdex '' "the JDex in $_JD_JDEX_LABEL has no one $_JD_JDEX_UNIT for category $c"
+       return 1
+     fi
+-    jcat=${jcat#bear:tag:}
+   elif [ "$_JD_JDEX_KIND" = flat ]; then
+     # A flat JDex: no area folders, the notes are in the root. The root
+     # is the category. Only the notes named c.NN count, so the other
+@@ -858,7 +857,7 @@ _jd_new_id() {
+   _jd_new_title || return 1
+   _JD_NEW_NAME="$_JD_NEW_ID $_JD_NEW_TITLE"
+   note_path="$jcat/$_JD_NEW_NAME.md"
+-  [ "$_JD_JDEX_KIND" = bear ] && note_path=''
++  [ "$_JD_JDEX_KIND" = store ] && note_path=''
+   dir="$fcat/$_JD_NEW_NAME"
+   if { [ -n "$note_path" ] && [ -e "$note_path" ]; } || [ -e "$dir" ]; then
+     _jd_new_fail exists "$dir" "$_JD_NEW_NAME already exists"
+@@ -872,8 +871,8 @@ _jd_new_id() {
+   [ -n "$_JD_NEW_TEMPLATE" ] || _jd_new_no_template ID
+ 
+   if [ "$_JD_NEW_DRY" -eq 1 ]; then
+-    if [ "$_JD_JDEX_KIND" = bear ]; then
+-      _jd_new_say "note    Bear: $_JD_NEW_NAME, #$jcat#"
++    if [ "$_JD_JDEX_KIND" = store ]; then
++      _jd_new_say "note    $(jd_jdex_where "$_JD_NEW_NAME" "$jcat")"
+     else
+       _jd_new_say "note    $note_path"
+     fi
+@@ -885,8 +884,8 @@ _jd_new_id() {
+     return 0
+   fi
+ 
+-  if [ "$_JD_JDEX_KIND" = bear ]; then
+-    _jd_new_write_bear "$_JD_NEW_NAME" "$jcat" || return 1
++  if [ "$_JD_JDEX_KIND" = store ]; then
++    _jd_new_write_store "$_JD_NEW_NAME" "$jcat" || return 1
+     note_path=$_JD_NEW_NOTE_URL
+   else
+     _jd_new_write_note "$note_path" || return 1
+@@ -908,7 +907,7 @@ _jd_new_id() {
+ # -------------------------------------------------------------------- wp
+ 
+ # The highest W number in the JDex, plus one. $1 the JDex work package
+-# area: a folder, or a tag in Bear.
++# area: a folder, or the store's container, such as a tag in Bear.
+ #
+ # Only the JDex counts, the same as for an ID. It reads the entries
+ # directly in the area, and the entries directly in its archive, W0009.
+@@ -918,8 +917,8 @@ _jd_new_next_number() {
+   local max n a
+   max=$(
+     {
+-      if [ "$_JD_JDEX_KIND" = bear ]; then
+-        _jd_bear_titles "$1" wp
++      if [ "$_JD_JDEX_KIND" = store ]; then
++        jd_jdex_titles "$1" wp
+       else
+         _jd_nav_find "$1" 1 a -iname 'w[0-9][0-9][0-9][0-9]*'
+         _jd_nav_find "$1" 1 d -iname 'W0009' -o -iname 'W0009 *' |
+@@ -1005,7 +1004,7 @@ EOF
+ _jd_new_parent_note() {
+   local depth=3 m n
+   _JD_NEW_PARENT_NOTE=''
+-  if [ "$_JD_JDEX_KIND" = bear ]; then
++  if [ "$_JD_JDEX_KIND" = store ]; then
+     m=$(_jd_jdex_find id "$_JD_NEW_ID")
+     [ "$(printf '%s' "$m" | grep -c '^')" -eq 1 ] || return 0
+     _JD_NEW_PARENT_NOTE=${m##*"$(printf '\t')"}
+@@ -1032,15 +1031,15 @@ _jd_new_wp() {
+   # rest.
+   _JD_NEW_WP_MAKE=''
+   _JD_NEW_WP_NOTE_TO=''
+-  _JD_NEW_WP_NOTE_FROM="$_JD_CLI_DIR/templates/$_JD_NEW_WP_TPL.md"
+-  if [ "$_JD_JDEX_KIND" = bear ]; then
+-    jw=$(_jd_bear_wp_areas)
++  _JD_NEW_WP_NOTE_FROM="$_JD_CLI_DIR/templates/$_JD_NEW_WP_TPL.$(_jd_jdex_ext)"
++  if [ "$_JD_JDEX_KIND" = store ]; then
++    # The store prints its work package area, or, if it has none yet,
++    # the one that writing the first note creates.
++    jw=$(jd_jdex_wp_area)
+     if [ "$(printf '%s' "$jw" | grep -c '^')" -gt 1 ]; then
+-      _jd_new_fail no_wp_area_jdex '' "the JDex in Bear has more than one tag named W0000..."
++      _jd_new_fail no_wp_area_jdex '' "the JDex in $_JD_JDEX_LABEL has more than one $_JD_JDEX_UNIT named W0000..."
+       return 1
+     fi
+-    # No tag yet: the note's tag creates it.
+-    [ -n "$jw" ] || jw="$_JD_BEAR_BASE$_JD_NEW_WP_AREA"
+   else
+     jw=$(_jd_nav_find "$_JD_NEW_JDEX" 1 d -iname 'W0000*')
+   fi
+@@ -1100,7 +1099,7 @@ _jd_new_wp() {
+     fi
+   fi
+   if [ "$new_w3" -eq 1 ] && [ -f "$_JD_NEW_WP_NOTE_FROM" ]; then
+-    _JD_NEW_WP_NOTE_TO="$w3/$_JD_NEW_WP_TPL.md"
++    _JD_NEW_WP_NOTE_TO="$w3/$_JD_NEW_WP_TPL.$(_jd_jdex_ext)"
+   fi
+ 
+   _JD_NEW_TASKS_TPL=''
+@@ -1148,7 +1147,7 @@ _jd_new_wp() {
+ 
+   _JD_NEW_NAME="$_JD_NEW_NUM~$_JD_NEW_ID $_JD_NEW_TITLE"
+   note_path="$jw/$_JD_NEW_NAME.md"
+-  [ "$_JD_JDEX_KIND" = bear ] && note_path=''
++  [ "$_JD_JDEX_KIND" = store ] && note_path=''
+   dir="$fw/$_JD_NEW_NAME"
+   if { [ -n "$note_path" ] && [ -e "$note_path" ]; } || [ -e "$dir" ]; then
+     ep=$dir
+@@ -1162,7 +1161,7 @@ _jd_new_wp() {
+   # A W0003 that jd is about to create contains nothing yet, so the note
+   # is read from jd's own template, which is what jd copies into it.
+   folder_tpl=''
+-  [ -f "$w3/$_JD_NEW_WP_TPL.md" ] && _JD_NEW_TEMPLATE="$w3/$_JD_NEW_WP_TPL.md"
++  [ -f "$w3/$_JD_NEW_WP_TPL.$(_jd_jdex_ext)" ] && _JD_NEW_TEMPLATE="$w3/$_JD_NEW_WP_TPL.$(_jd_jdex_ext)"
+   [ -d "$w3/$_JD_NEW_WP_TPL" ] && folder_tpl="$w3/$_JD_NEW_WP_TPL"
+   [ -n "$_JD_NEW_WP_NOTE_TO" ] && _JD_NEW_TEMPLATE=$_JD_NEW_WP_NOTE_FROM
+   _jd_new_read_template "$_JD_NEW_TEMPLATE" || return 1
+@@ -1200,8 +1199,8 @@ _jd_new_wp() {
+ 
+   if [ "$_JD_NEW_DRY" -eq 1 ]; then
+     _jd_new_wp_make dry
+-    if [ "$_JD_JDEX_KIND" = bear ]; then
+-      _jd_new_say "note    Bear: $_JD_NEW_NAME, #$jw#"
++    if [ "$_JD_JDEX_KIND" = store ]; then
++      _jd_new_say "note    $(jd_jdex_where "$_JD_NEW_NAME" "$jw")"
+     else
+       _jd_new_say "note    $note_path"
+     fi
+@@ -1239,8 +1238,8 @@ _jd_new_wp() {
+   fi
+ 
+   # The JDex note, with both links in it.
+-  if [ "$_JD_JDEX_KIND" = bear ]; then
+-    _jd_new_write_bear "$_JD_NEW_NAME" "$jw" || return 1
++  if [ "$_JD_JDEX_KIND" = store ]; then
++    _jd_new_write_store "$_JD_NEW_NAME" "$jw" || return 1
+     note_path=$_JD_NEW_NOTE_URL
+   else
+     _jd_new_write_note "$note_path" || return 1

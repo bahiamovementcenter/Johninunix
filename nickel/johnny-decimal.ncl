@@ -92,10 +92,12 @@ let app_name = validator (fun a =>
   if std.is_string a && matches "^[a-z0-9_-]+$" a then [] else ["an app is a name of a-z, 0-9, _ and -, like obsidian"]
 )
 in
-# Where the JDex is (jd's config version 2): a folder, an app, or both
+# Where the JDex is (jd's config version 2): a folder, an app, or both. An
+# app with a JDex store (lib/adapters/jdex/, like bear and org) keeps the
+# JDex itself; any other app is a folder of Markdown notes.
 let Jdex = {
-  app | doc "The note app: obsidian, bear, or one in extensions/adapters/notes/" | app_name | optional,
-  path | doc "The folder of JDex notes. A relative path is relative to system.ncl" | String | optional,
+  app | doc "The note app: obsidian, bear, org, or one in extensions/adapters/notes/" | app_name | optional,
+  path | doc "The folder of JDex notes, or for org, the Org file. A relative path is relative to system.ncl" | String | optional,
   vault | doc "The Obsidian vault's name" | String | optional,
 }
 in
@@ -120,7 +122,15 @@ let System = {
   jdex | doc "Where the JDex is, like { path = \"jdex\" } or { app = \"bear\" }" | Jdex | validator jdex_errors | optional,
   default | Bool | default = false,
   standard_zeros | doc "Add .00 to .05 and .09 to every category" | Bool | default = true,
-  work_packages | { tasks | Tasks | optional } | optional,
+  work_packages
+    | {
+      tasks | Tasks | optional,
+      first_number
+        | doc "The lowest W number jd gives a work package. The default, 11, follows the Johnny.Decimal docs (\"start your own work packages at W0011\") and leaves W0000 to W0010 to the area. jd never gives W0003 or W0009"
+        | validator (fun n => if std.is_number n && std.number.is_integer n && n >= 1 && n <= 9999 then [] else ["first_number is a whole number from 1 to 9999"])
+        | default = 11,
+    }
+    | default = {},
   areas | doc "Range → area, like \"10-19\"" | { _ | Area } | validator area_errors,
 }
 in
@@ -177,7 +187,14 @@ in
 let config_of = fun s =>
   { sys = s.sys, title = s.title, root = s.root, default = s.default }
   & (if std.record.has_field "jdex" s then { jdex = s.jdex } else {})
-  & (if std.record.has_field "work_packages" s then { workPackages = s.work_packages } else {})
+  & (
+    let w = s.work_packages in
+    {
+      workPackages =
+        (if std.record.has_field "tasks" w then { tasks = w.tasks } else {})
+        & { firstNumber = w.first_number },
+    }
+  )
 in
 # A category's IDs, with the standard zeros it doesn't name itself
 let ids_of = fun s c category =>
