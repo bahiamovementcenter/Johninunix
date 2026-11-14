@@ -72,6 +72,9 @@ second: the JDex is the outline of one Org file.
 * 10-19 Life admin
 ** 11 Me
 *** 11.11 Passport
+:PROPERTIES:
+:CUSTOM_ID: 11.11
+:END:
 * W0000-9999 Work packages
 ** W0001~11.11 Renew it
 :PROPERTIES:
@@ -83,7 +86,9 @@ second: the JDex is the outline of one Org file.
 `emacsclient -n`); `jd new id` and `jd new wp` add a heading at the end of
 its category or the work package area, from `ID template.org` and
 `Work package template.org`; and `jd scaffold` in `jd.nu` writes the
-declared areas, categories and IDs into the file as headings.
+declared areas, categories and IDs into the file as headings. Every ID
+and work package heading jd writes gets a `CUSTOM_ID` with its number, so
+`[[#11.11]]` or `file:jdex.org::#W0001` links to it even after a rename.
 
 ## Layout
 
